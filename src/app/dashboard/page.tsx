@@ -15,7 +15,8 @@ import {
   FileText, BookOpen, AlertCircle, Sparkles, Copy, 
   FileDown, Upload, History, Star, ShieldAlert,
   MousePointer2, Zap, ArrowRight, Layers, Rocket,
-  GraduationCap, Share2, Search, Trash2, Printer, Info
+  GraduationCap, Share2, Search, Trash2, Printer, Info,
+  Loader2
 } from "lucide-react";
 import { summarizeNotes } from "@/ai/flows/summarize-notes";
 import { generateExamAnswer } from "@/ai/flows/generate-exam-answer";
@@ -23,6 +24,7 @@ import { generateImportantQuestions } from "@/ai/flows/generate-important-questi
 import { generateRevisionSheet } from "@/ai/flows/generate-revision-sheet";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
 import { saveDocument, generateHash, findCachedDocument, updateOnboardingStatus, toggleFavorite } from "@/lib/firestore-services";
+import { trackEvent } from "@/lib/analytics";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -73,7 +75,7 @@ export default function Dashboard() {
       setAnswerMode(doc.answerMode || "medium");
       setIsExamBooster(doc.isExamBooster || false);
       sessionStorage.removeItem('restore_doc');
-      toast({ title: "Study Pack Loaded", description: "Old context restored to workspace." });
+      toast({ title: "Study Pack Loaded", description: "Context restored to workspace." });
     }
 
     const fetchUsage = async () => {
@@ -96,19 +98,19 @@ export default function Dashboard() {
       const text = await file.text();
       setInputText(text);
       if (!title) setTitle(file.name.replace(".txt", ""));
-      toast({ title: "Text Uploaded", description: "Successfully extracted text." });
+      toast({ title: "Text Uploaded", description: "Extracted file content." });
     } else if (file.type === "application/pdf") {
-      toast({ title: "Reading PDF", description: "Extracting readable text layers..." });
+      toast({ title: "Reading PDF", description: "Extracting text layers..." });
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
-        setInputText(content.slice(0, 5000));
+        setInputText(content.slice(0, 10000));
         if (!title) setTitle(file.name.replace(".pdf", ""));
-        toast({ title: "PDF Extracted", description: "Review and clean the text if needed." });
+        toast({ title: "PDF Extracted", description: "Review text for accuracy." });
       };
       reader.readAsText(file);
     } else {
-      toast({ title: "Unsupported Format", description: "Please use .txt or .pdf files.", variant: "destructive" });
+      toast({ title: "Format Error", description: "Use .txt or .pdf files.", variant: "destructive" });
     }
   };
 
@@ -117,16 +119,18 @@ export default function Dashboard() {
     const input = textOverride || inputText;
 
     if (!input.trim()) {
-      toast({ title: "Empty Input", description: "Please paste your notes first.", variant: "destructive" });
+      toast({ title: "Empty Input", description: "Please paste your notes.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     setResult(null);
+    trackEvent(user!.uid, 'generation_started', { tool, subject });
 
     try {
       const usageLimit = await checkUsageLimit(user!.uid, userData?.plan || 'free');
       if (!usageLimit.allowed) {
+        trackEvent(user!.uid, 'free_limit_hit');
         toast({ title: "Daily Limit Reached", description: "Upgrade to Pro for unlimited prep!", variant: "destructive" });
         setLoading(false);
         return;
@@ -139,7 +143,7 @@ export default function Dashboard() {
         setResult(cached.outputText);
         setCurrentDocId(cached.id || null);
         setIsFavorite(cached.isFavorite || false);
-        toast({ title: "Restored from Library", description: "Found an identical generation." });
+        toast({ title: "Restored", description: "Using identical library version." });
         setLoading(false);
         return;
       }
@@ -165,6 +169,7 @@ export default function Dashboard() {
       setResult(aiResult);
       await incrementUsage(user!.uid);
       setUsage(prev => ({ ...prev, used: prev.used + 1 }));
+      trackEvent(user!.uid, 'generation_success', { tool });
 
       const savedDoc = await saveDocument({
         uid: user!.uid,
@@ -181,10 +186,10 @@ export default function Dashboard() {
       });
       
       setCurrentDocId(savedDoc.id);
-      toast({ title: "Prep Pack Ready!", description: "High-scoring material generated." });
     } catch (error) {
       console.error(error);
-      toast({ title: "AI Busy", description: "Try again in a few seconds.", variant: "destructive" });
+      trackEvent(user!.uid, 'generation_failed', { error: String(error) });
+      toast({ title: "AI Error", description: "Model busy, please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -196,7 +201,7 @@ export default function Dashboard() {
     try {
       await toggleFavorite(currentDocId, newStatus);
       setIsFavorite(newStatus);
-      toast({ title: newStatus ? "Favorited" : "Removed", description: "Library updated." });
+      toast({ title: newStatus ? "Favorited" : "Removed", description: "Study library updated." });
     } catch (e) {
       toast({ title: "Error", description: "Failed to update pack." });
     }
@@ -210,7 +215,7 @@ export default function Dashboard() {
     else content = `${result.quickNotes}\n\nFORMULAS:\n${result.formulasAndDefinitions.join('\n')}`;
 
     navigator.clipboard.writeText(content.replace(/\*\*/g, ''));
-    toast({ title: "Copied!", description: "Ready to paste or share." });
+    toast({ title: "Copied!", description: "Ready to share." });
   };
 
   const chainToTool = (newTool: string) => {
@@ -222,6 +227,7 @@ export default function Dashboard() {
 
     setInputText(context);
     setActiveTool(newTool);
+    trackEvent(user!.uid, 'output_chained', { from: activeTool, to: newTool });
     handleToolAction(newTool, context);
   };
 
@@ -258,14 +264,14 @@ export default function Dashboard() {
             <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 group hover:bg-primary/5 transition-colors">
               <BookOpen className="h-6 w-6 text-primary" />
               <p className="font-black text-xs uppercase tracking-widest text-slate-400">Model Answers</p>
-              <p className="text-[10px] text-slate-600 font-bold">Structured for max university marks.</p>
+              <p className="text-[10px] text-slate-600 font-bold">Structured for max marks.</p>
             </div>
           </div>
           <DialogFooter>
             <Button className="w-full rounded-2xl font-black h-14 text-lg shadow-xl shadow-primary/20" onClick={async () => {
               setShowOnboarding(false);
               if (user) await updateOnboardingStatus(user.uid);
-            }}>Get Started Now</Button>
+            }}>Enter Workspace</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -280,7 +286,7 @@ export default function Dashboard() {
                 <Badge className="bg-primary/10 text-primary border-none font-black flex gap-1.5 items-center px-4 h-6 text-[10px]"><Star className="h-3 w-3 fill-primary" /> {userData?.plan.toUpperCase()} PACK</Badge>
              )}
           </div>
-          <p className="text-muted-foreground font-medium text-sm md:text-lg">Paste notes or upload a topic to generate study sheets.</p>
+          <p className="text-muted-foreground font-medium text-sm md:text-lg">Paste notes or upload topics to generate study material.</p>
         </div>
         
         {userData?.plan === 'free' && (
@@ -311,7 +317,7 @@ export default function Dashboard() {
                         <Info className="h-4 w-4 text-slate-300 cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs font-bold text-[10px] p-4 rounded-xl">
-                        Plain text PDFs work best. Scanned or image-based PDFs may need manual cleanup.
+                        Simple text PDFs work best. Images/Scans may need manual cleanup.
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -331,7 +337,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Label className="font-black text-[9px] text-slate-400 uppercase tracking-widest">Chapter Title / Topic</Label>
                 <Input 
-                  placeholder="e.g., Data Structures - Unit 1" 
+                  placeholder="e.g., OS Architectures - Unit 1" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="rounded-xl border-slate-100 h-12 font-bold text-base shadow-sm"
@@ -366,9 +372,9 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-black text-[9px] text-slate-400 uppercase tracking-widest">Notes / Question Context</Label>
+                <Label className="font-black text-[9px] text-slate-400 uppercase tracking-widest">Notes Context</Label>
                 <Textarea
-                  placeholder="Paste textbook text or specific question context here..."
+                  placeholder="Paste text or specific question content here..."
                   className="min-h-[300px] resize-none rounded-[1.5rem] border-slate-100 focus-visible:ring-primary leading-relaxed p-6 font-bold text-slate-700 bg-slate-50/30 text-base shadow-inner"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
@@ -381,7 +387,7 @@ export default function Dashboard() {
                     <Label className="font-black text-[10px] uppercase tracking-widest">Exam Booster Mode</Label>
                     <Badge className="bg-amber-100 text-amber-700 border-none text-[8px] font-black uppercase">ELITE</Badge>
                   </div>
-                  <p className="text-[9px] text-slate-400 font-bold italic">Richer answers, more probable questions</p>
+                  <p className="text-[9px] text-slate-400 font-bold italic">High-scoring university patterns</p>
                 </div>
                 <Switch 
                   checked={isExamBooster} 
@@ -402,14 +408,11 @@ export default function Dashboard() {
                 disabled={loading || !inputText}
               >
                 {loading ? (
-                   <div className="flex items-center gap-3">
-                    <div className="h-6 w-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                    Analyzing...
-                  </div>
+                   <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
                   <>
                     <Sparkles className="h-6 w-6 group-hover:rotate-12 transition-transform" />
-                    Generate Prep Sheet
+                    Generate Study Sheet
                   </>
                 )}
               </Button>
@@ -447,7 +450,7 @@ export default function Dashboard() {
                   </div>
                   <div className="space-y-3 max-w-xs">
                     <h2 className="font-black text-2xl font-headline text-slate-900 tracking-tight">Workspace Empty</h2>
-                    <p className="text-slate-400 font-bold text-sm leading-relaxed px-4">Paste notes or upload a PDF on the left to start generating study materials.</p>
+                    <p className="text-slate-400 font-bold text-sm leading-relaxed px-4">Paste notes or upload topics on the left to start prep.</p>
                   </div>
                 </div>
               )}
@@ -461,8 +464,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-center space-y-2">
-                    <p className="font-black text-3xl font-headline tracking-tight">StudyPilot is Processing...</p>
-                    <p className="text-muted-foreground font-black text-xs uppercase tracking-widest opacity-50">Formatting for {subject} university standards</p>
+                    <p className="font-black text-3xl font-headline tracking-tight">StudyPilot Processing...</p>
+                    <p className="text-muted-foreground font-black text-xs uppercase tracking-widest opacity-50">Drafting {subject} study material</p>
                   </div>
                 </div>
               )}
@@ -492,8 +495,11 @@ export default function Dashboard() {
                       <Button variant="outline" className="rounded-xl h-12 gap-2 border-2 border-slate-100 font-black px-6 text-sm" onClick={copyToClipboard}>
                         <Copy className="h-4 w-4 text-slate-400" /> Copy
                       </Button>
-                      <Button className="rounded-xl h-12 gap-2 shadow-xl shadow-primary/20 font-black px-8 text-sm" onClick={() => window.print()}>
-                        <Printer className="h-4 w-4" /> Print / PDF
+                      <Button className="rounded-xl h-12 gap-2 shadow-xl shadow-primary/20 font-black px-8 text-sm" onClick={() => {
+                         trackEvent(user!.uid, 'output_exported', { tool: activeTool });
+                         window.print();
+                      }}>
+                        <Printer className="h-4 w-4" /> Export PDF
                       </Button>
                     </div>
                   </div>
@@ -507,7 +513,7 @@ export default function Dashboard() {
                           <div className="text-slate-900 leading-relaxed text-xl font-black relative z-10 print:text-base">{formatWithBold(result.shortSummary)}</div>
                         </section>
                         <section className="space-y-6">
-                          <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><Layers className="h-4 w-4" /> Exam-Ready Bullet Notes</h3>
+                          <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><Layers className="h-4 w-4" /> Bullet Prep Notes</h3>
                           <div className="grid grid-cols-1 gap-4">
                             {result.bulletPoints?.map((bp: string, i: number) => (
                               <div key={i} className="flex gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-primary/20 hover:bg-white transition-all shadow-sm group print:bg-white print:p-3 print:rounded-lg">
@@ -518,7 +524,7 @@ export default function Dashboard() {
                           </div>
                         </section>
                         <section className="bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden print:bg-slate-100 print:text-slate-900 print:rounded-2xl print:p-6">
-                           <h3 className="text-[10px] font-black opacity-40 uppercase tracking-widest mb-4">Exam Prep Hook</h3>
+                           <h3 className="text-[10px] font-black opacity-40 uppercase tracking-widest mb-4">Exam Revision Block</h3>
                            <p className="text-lg font-black italic mb-6">"{result.quickRevisionBlock}"</p>
                            <div className="p-6 bg-white/10 rounded-2xl border border-white/10 print:bg-white print:border-slate-200">
                              <p className="text-xs font-bold leading-relaxed">{result.examHighlights}</p>
@@ -530,7 +536,7 @@ export default function Dashboard() {
                     {activeTool === "answer" && (
                       <div className="space-y-10 max-w-4xl">
                         <div className="space-y-2">
-                          <p className="text-[9px] font-black text-primary uppercase tracking-[0.4em] print:text-slate-400">Structured Model Answer</p>
+                          <p className="text-[9px] font-black text-primary uppercase tracking-[0.4em] print:text-slate-400">Model Exam Answer</p>
                           <h3 className="text-4xl font-black font-headline tracking-tighter text-slate-900 print:text-2xl">{result.title}</h3>
                         </div>
                         <div className="space-y-6">
@@ -543,7 +549,7 @@ export default function Dashboard() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <Card className="rounded-3xl border-2 border-slate-100 bg-slate-50 p-6 print:bg-white">
-                              <h4 className="text-[9px] font-black text-primary uppercase tracking-widest mb-4">Must Mention Keywords</h4>
+                              <h4 className="text-[9px] font-black text-primary uppercase tracking-widest mb-4">Terms to Mention</h4>
                               <div className="flex flex-wrap gap-2">
                                 {result.scoringKeywords?.map((kw: string, i: number) => (
                                   <Badge key={i} className="bg-white text-slate-900 border-slate-200 px-4 py-2 rounded-xl font-black text-[10px] shadow-sm">{kw}</Badge>
@@ -552,7 +558,7 @@ export default function Dashboard() {
                            </Card>
                            {result.diagramSuggestions && (
                              <Card className="rounded-3xl border-2 border-amber-100 bg-amber-50 p-6 print:bg-white print:border-slate-100">
-                                <h4 className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-4">Diagram Suggestion</h4>
+                                <h4 className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-4">Diagram Tip</h4>
                                 <p className="text-xs font-bold text-amber-900 leading-relaxed">{result.diagramSuggestions}</p>
                              </Card>
                            )}
@@ -563,7 +569,7 @@ export default function Dashboard() {
                              <ShieldAlert className="h-8 w-8 text-white" />
                            </div>
                            <div className="space-y-2 relative z-10">
-                             <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Marking Strategy Tip</p>
+                             <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Scoring Strategy</p>
                              <p className="text-xl font-black font-headline tracking-tight print:text-lg">{result.examTip}</p>
                            </div>
                         </div>
@@ -575,7 +581,7 @@ export default function Dashboard() {
                         <section className="bg-rose-50 p-8 rounded-[2.5rem] border-4 border-rose-100 relative overflow-hidden print:bg-white print:p-6 print:rounded-2xl">
                            <div className="flex justify-between items-center mb-8">
                               <h3 className="text-[10px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-3">
-                                <AlertCircle className="h-6 w-6" /> High Probability Predictions
+                                <AlertCircle className="h-6 w-6" /> Probable Predictions
                               </h3>
                               <Badge className={cn(
                                 "border-none text-[8px] font-black uppercase tracking-widest px-3",
@@ -595,7 +601,7 @@ export default function Dashboard() {
                         </section>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                            <div className="space-y-6">
-                              <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Section A (2-Mark Definitions)</h4>
+                              <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Section A (Short)</h4>
                               {result.twoMarkQuestions?.map((q: string, i: number) => (
                                 <div key={i} className="flex gap-4 items-start bg-slate-50 p-4 rounded-xl border border-slate-100 hover:bg-white transition-all print:bg-white">
                                   <span className="h-8 w-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">{i+1}</span>
@@ -604,7 +610,7 @@ export default function Dashboard() {
                               ))}
                            </div>
                            <div className="space-y-6">
-                              <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Section B (5-Mark Explanatory)</h4>
+                              <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Section B (Long)</h4>
                               {result.fiveMarkQuestions?.map((q: string, i: number) => (
                                 <div key={i} className="flex gap-4 items-start bg-slate-50 p-4 rounded-xl border border-slate-100 hover:bg-white transition-all print:bg-white">
                                   <span className="h-8 w-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">{i+1}</span>
@@ -619,8 +625,8 @@ export default function Dashboard() {
                     {activeTool === "revision" && (
                       <div className="space-y-12 bg-slate-50/20 p-8 md:p-12 rounded-[2.5rem] border-2 border-slate-50 print:bg-white print:p-0 print:border-none">
                         <div className="text-center space-y-4 mb-10 print:mb-6 print:text-left">
-                          <p className="text-[10px] font-black text-primary uppercase tracking-widest">Rapid Memory Pack</p>
-                          <h3 className="text-4xl font-black font-headline tracking-tighter text-slate-900 print:text-2xl">Final Hour Revision</h3>
+                          <p className="text-[10px] font-black text-primary uppercase tracking-widest">Rapid Revision Pack</p>
+                          <h3 className="text-4xl font-black font-headline tracking-tighter text-slate-900 print:text-2xl">Final Hour Recall</h3>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                            <section className="space-y-4">
@@ -631,7 +637,7 @@ export default function Dashboard() {
                            </section>
                            <div className="space-y-10">
                               <section className="space-y-4">
-                                <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Critical Formulae & Definitions</h4>
+                                <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Key Terms & Formulae</h4>
                                 <div className="space-y-3">
                                   {result.formulasAndDefinitions?.map((f: string, i: number) => (
                                     <div key={i} className="p-6 bg-white rounded-xl border-2 border-slate-50 text-base font-black text-slate-800 flex gap-4 items-center shadow-sm print:p-3 print:text-xs">
@@ -643,7 +649,7 @@ export default function Dashboard() {
                               </section>
                               {result.mnemonics && result.mnemonics.length > 0 && (
                                 <section className="space-y-4">
-                                  <h4 className="text-[9px] font-black text-primary uppercase tracking-widest">Memory Shortcuts</h4>
+                                  <h4 className="text-[9px] font-black text-primary uppercase tracking-widest">Memory Hook</h4>
                                   <div className="grid grid-cols-1 gap-3">
                                     {result.mnemonics.map((m: string, i: number) => (
                                       <div key={i} className="p-5 bg-primary/5 rounded-2xl border-2 border-primary/5 font-black text-sm text-primary flex gap-4 items-center">
@@ -655,7 +661,7 @@ export default function Dashboard() {
                                 </section>
                               )}
                               <section className="bg-slate-900 p-8 rounded-[2rem] text-white space-y-4 print:bg-slate-100 print:text-slate-900 print:p-6">
-                                <h4 className="text-[9px] font-black opacity-40 uppercase tracking-widest">Top 3 Scoring Points</h4>
+                                <h4 className="text-[9px] font-black opacity-40 uppercase tracking-widest">Top Scoring Points</h4>
                                 <ul className="space-y-4">
                                   {result.mustMemorizeSection?.map((pt: string, i: number) => (
                                     <li key={i} className="flex gap-4 text-sm font-black border-l-4 border-primary pl-4">{pt}</li>
@@ -673,27 +679,27 @@ export default function Dashboard() {
                     <div className="flex flex-col items-center space-y-6">
                       <div className="space-y-1 text-center">
                         <Badge className="bg-primary/5 text-primary border-none px-4 py-1 font-black text-[9px] tracking-widest rounded-full uppercase">Next Study Step</Badge>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Build your study library by chaining tools</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Build your pack by chaining tools</p>
                       </div>
                       <div className="flex flex-wrap justify-center gap-3">
                         {activeTool !== "summarize" && (
                           <Button variant="outline" className="rounded-xl h-12 font-black border-2 border-slate-100 hover:border-primary px-6 transition-all text-sm" onClick={() => chainToTool("summarize")}>
-                            <Zap className="h-4 w-4 mr-2 text-primary" /> Summarize this Answer
+                            <Zap className="h-4 w-4 mr-2 text-primary" /> Summarize Result
                           </Button>
                         )}
                         {activeTool !== "answer" && (
                           <Button variant="outline" className="rounded-xl h-12 font-black border-2 border-slate-100 hover:border-primary px-6 transition-all text-sm" onClick={() => chainToTool("answer")}>
-                            <BookOpen className="h-4 w-4 mr-2 text-primary" /> Generate 10-Mark Answer
+                            <BookOpen className="h-4 w-4 mr-2 text-primary" /> Create Model Answer
                           </Button>
                         )}
                         {activeTool !== "questions" && (
                           <Button variant="outline" className="rounded-xl h-12 font-black border-2 border-slate-100 hover:border-primary px-6 transition-all text-sm" onClick={() => chainToTool("questions")}>
-                            <AlertCircle className="h-4 w-4 mr-2 text-primary" /> Turn into Probable Questions
+                            <AlertCircle className="h-4 w-4 mr-2 text-primary" /> Predict Questions
                           </Button>
                         )}
                         {activeTool !== "revision" && (
                           <Button variant="outline" className="rounded-xl h-12 font-black border-2 border-slate-100 hover:border-primary px-6 transition-all text-sm" onClick={() => chainToTool("revision")}>
-                            <FileText className="h-4 w-4 mr-2 text-primary" /> Create Rapid Revision Sheet
+                            <FileText className="h-4 w-4 mr-2 text-primary" /> Rapid Revision Sheet
                           </Button>
                         )}
                       </div>

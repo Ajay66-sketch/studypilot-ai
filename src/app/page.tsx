@@ -9,7 +9,7 @@ import {
   CheckCircle2, GraduationCap, Zap, BookOpen, 
   ArrowRight, ShieldCheck, Sparkles, Star, 
   Layers, Rocket, AlertCircle, FileText,
-  Smartphone, ShieldQuestion, Heart, Trophy, MessageSquare
+  Smartphone, Trophy, Heart, ShieldQuestion
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -23,8 +23,7 @@ export default function LandingPage() {
           <span className="font-headline font-black text-xl tracking-tighter text-slate-900">StudyPilot AI</span>
         </Link>
         <nav className="ml-auto flex gap-4 md:gap-8 items-center">
-          <Link className="hidden lg:block text-sm font-bold text-slate-600 hover:text-primary transition-colors" href="#how-it-works">Process</Link>
-          <Link className="hidden lg:block text-sm font-bold text-slate-600 hover:text-primary transition-colors" href="#pricing">Pricing</Link>
+          <Link className="hidden lg:block text-sm font-bold text-slate-600 hover:text-primary transition-colors" href="/dashboard/billing">Pricing</Link>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" className="font-black text-slate-700 hover:bg-slate-50 text-sm px-4">
               <Link href="/dashboard">Login</Link>
@@ -50,7 +49,7 @@ export default function LandingPage() {
                 Notes into <span className="text-primary italic">Exam Answers</span> <br /> In Seconds.
               </h1>
               <p className="mx-auto max-w-2xl text-slate-500 text-base md:text-xl font-medium leading-relaxed">
-                Stop wasting hours on manual note-making. StudyPilot transforms messy textbooks into high-scoring model answers and revision packs instantly.
+                StudyPilot transforms messy textbooks into structured model answers and revision packs instantly. Stop manual note-making.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button asChild size="lg" className="h-14 px-10 text-lg font-black rounded-2xl shadow-2xl shadow-primary/20 hover:scale-105 transition-all group bg-primary">
@@ -59,66 +58,52 @@ export default function LandingPage() {
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" className="h-14 px-10 text-lg font-black rounded-2xl border-2 hover:bg-slate-50 shadow-sm" asChild>
-                  <Link href="#pricing">View India Pricing</Link>
+                  <Link href="/dashboard/billing">View India Pricing</Link>
                 </Button>
-              </div>
-
-              <div className="pt-16 flex flex-wrap justify-center gap-8 opacity-40 grayscale pointer-events-none">
-                 <div className="font-bold text-sm tracking-tight flex items-center gap-2"><Smartphone className="h-4 w-4" /> Android Friendly</div>
-                 <div className="font-bold text-sm tracking-tight flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> 100% Secure</div>
-                 <div className="font-bold text-sm tracking-tight flex items-center gap-2"><Trophy className="h-4 w-4" /> Result Focused</div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Comparison Section (Why not ChatGPT?) */}
-        <section className="w-full py-24 bg-white border-y border-slate-50">
-          <div className="container px-4 md:px-6 mx-auto">
-             <div className="max-w-4xl mx-auto space-y-12">
-                <div className="text-center space-y-4">
-                  <h2 className="text-3xl md:text-5xl font-black font-headline tracking-tight">Why not just ChatGPT?</h2>
-                  <p className="text-slate-500 font-bold max-w-2xl mx-auto">ChatGPT is generic. StudyPilot is a specialized study architect that understands university marking schemes and student memory patterns.</p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <Card className="p-8 rounded-[2rem] border-2 border-slate-100 bg-slate-50/30">
-                      <h3 className="font-black text-lg mb-6 text-slate-400 uppercase tracking-widest text-center">ChatGPT Output</h3>
-                      <ul className="space-y-4 opacity-50">
-                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> Generic wall of text</li>
-                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> No intro-body-conclusion structure</li>
-                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> Doesn't know "Most Probable" questions</li>
-                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> Requires complex prompt engineering</li>
-                      </ul>
-                   </Card>
-                   <Card className="p-8 rounded-[2rem] border-4 border-primary bg-primary/[0.02] relative overflow-hidden">
-                      <Zap className="absolute -top-4 -right-4 h-24 w-24 text-primary/10" />
-                      <h3 className="font-black text-lg mb-6 text-primary uppercase tracking-widest text-center">StudyPilot AI Output</h3>
-                      <ul className="space-y-4">
-                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Structured Model Answers (2/5/10 Marks)</li>
-                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Automated Revision Mnemonics</li>
-                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Predicted Probable Questions</li>
-                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> 1-Click Study Sheet Generation</li>
-                      </ul>
-                   </Card>
-                </div>
-             </div>
-          </div>
+        {/* How it works */}
+        <section className="w-full py-24 bg-white border-y">
+           <div className="container px-4 mx-auto max-w-5xl">
+              <div className="text-center mb-16 space-y-4">
+                <h2 className="text-3xl md:text-5xl font-black font-headline">The 3-Step Success</h2>
+                <p className="text-slate-500 font-bold italic">Go from "I'm lost" to "I'm ready" in minutes.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
+                 <div className="space-y-4">
+                    <div className="h-16 w-16 bg-primary text-white rounded-2xl flex items-center justify-center font-black text-2xl mx-auto shadow-lg">1</div>
+                    <h3 className="font-black text-xl">Paste Notes</h3>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Paste raw textbook text or upload a simple PDF of your topic.</p>
+                 </div>
+                 <div className="space-y-4">
+                    <div className="h-16 w-16 bg-primary text-white rounded-2xl flex items-center justify-center font-black text-2xl mx-auto shadow-lg">2</div>
+                    <h3 className="font-black text-xl">Select Tool</h3>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Choose Model Answers, Summaries, or Probable Questions.</p>
+                 </div>
+                 <div className="space-y-4">
+                    <div className="h-16 w-16 bg-primary text-white rounded-2xl flex items-center justify-center font-black text-2xl mx-auto shadow-lg">3</div>
+                    <h3 className="font-black text-xl">Ace the Exam</h3>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">Get structured, high-scoring material tailored for university marking schemes.</p>
+                 </div>
+              </div>
+           </div>
         </section>
 
         {/* Feature Grid */}
-        <section id="features" className="w-full py-20 bg-slate-50">
-          <div className="container px-4 md:px-6 mx-auto">
+        <section className="w-full py-20 bg-slate-50">
+          <div className="container px-4 mx-auto">
             <div className="text-center space-y-3 mb-16">
-              <h2 className="text-3xl md:text-6xl font-black tracking-tighter font-headline">The Smart Study Suite.</h2>
-              <p className="text-sm md:text-base text-slate-500 font-medium max-w-xl mx-auto">Engineered for internally-conducted exams and semester patterns.</p>
+              <h2 className="text-3xl md:text-6xl font-black tracking-tighter font-headline">The Study Suite.</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { title: "Summarizer", icon: Zap, desc: "Quick summaries, bullet points, and key concepts for fast internal reading." },
-                { title: "Exam Answers", icon: BookOpen, desc: "Structured answers optimized for scoring maximum university marks." },
-                { title: "Important Qs", icon: AlertCircle, desc: "Predicted 2, 5, and 10 mark questions for targeted last-day prep." },
-                { title: "Revision Sheets", icon: Layers, desc: "Dense revision packs with memory mnemonics and hall checklists." }
+                { title: "Summarizer", icon: Zap, desc: "Dense notes into high-impact scoring points." },
+                { title: "Exam Answers", icon: BookOpen, desc: "Model answers structured for 2/5/10 mark questions." },
+                { title: "Important Qs", icon: AlertCircle, desc: "Predicted probable questions for targeted last-day prep." },
+                { title: "Revision Sheets", icon: FileText, desc: "One-page rapid packs with recall mnemonics." }
               ].map((feature, i) => (
                 <Card key={i} className="border-none shadow-md hover:shadow-xl transition-all rounded-[2rem] p-8 group bg-white">
                   <div className="p-4 w-fit rounded-xl bg-primary/5 text-primary mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
@@ -132,75 +117,33 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section id="pricing" className="w-full py-20 bg-white">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="text-center space-y-3 mb-16">
-              <h2 className="text-3xl md:text-6xl font-black tracking-tighter font-headline">Budget Friendly.</h2>
-              <p className="text-sm md:text-base text-slate-500 font-medium">Invest in your results for the price of a coffee.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto items-center">
-              {/* Starter */}
-              <Card className="p-8 rounded-[2rem] border-2 border-slate-100 bg-white flex flex-col h-full hover:shadow-lg transition-shadow">
-                <div className="mb-6">
-                  <Badge variant="outline" className="mb-2 font-black border-slate-100 text-[10px]">PILOT</Badge>
-                  <div className="text-4xl font-black text-slate-900">₹0<span className="text-xs text-slate-400 font-bold ml-1">/mo</span></div>
-                </div>
-                <ul className="space-y-3 flex-1 font-bold text-slate-500 text-sm mb-8">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> 5 generations / day</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> Standard outputs</li>
-                  <li className="flex items-center gap-2 text-slate-300"><CheckCircle2 className="h-4 w-4" /> No Premium Mode</li>
-                </ul>
-                <Button variant="outline" className="w-full rounded-xl h-12 font-black border-2" asChild>
-                  <Link href="/dashboard">Get Started</Link>
-                </Button>
-              </Card>
-
-              {/* Pro */}
-              <Card className="p-10 rounded-[2.5rem] border-4 border-primary bg-white flex flex-col h-full shadow-2xl relative scale-105 z-10 overflow-hidden">
-                <div className="absolute top-0 right-0 bg-primary text-white px-5 py-2 text-[8px] font-black rounded-bl-xl uppercase tracking-widest">BEST VALUE</div>
-                <div className="mb-8">
-                  <Badge className="mb-2 font-black bg-primary/10 text-primary border-none text-[10px]">STUDY PRO</Badge>
-                  <div className="text-5xl font-black text-primary">₹99<span className="text-xs text-slate-400 font-bold ml-1">/mo</span></div>
-                </div>
-                <ul className="space-y-4 flex-1 font-bold text-slate-700 mb-10 text-sm">
-                  <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary" /> Unlimited generations</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary" /> Advanced Chaining</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary" /> Premium Exports</li>
-                </ul>
-                <Button className="w-full rounded-2xl h-14 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 font-black text-base" asChild>
-                  <Link href="/dashboard/billing">Go Pro Now</Link>
-                </Button>
-              </Card>
-
-              {/* Elite */}
-              <Card className="p-8 rounded-[2rem] border-2 border-slate-100 bg-white flex flex-col h-full hover:shadow-lg transition-shadow">
-                <div className="mb-6">
-                  <Badge variant="outline" className="mb-2 font-black border-slate-100 text-[10px]">ELITE PREP</Badge>
-                  <div className="text-4xl font-black text-slate-900">₹199<span className="text-xs text-slate-400 font-bold ml-1">/mo</span></div>
-                </div>
-                <ul className="space-y-3 flex-1 font-bold text-slate-500 text-sm mb-8">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> Everything in Pro</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> Exam Booster Mode</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> Priority Tools</li>
-                </ul>
-                <Button variant="outline" className="w-full rounded-xl h-12 font-black border-2" asChild>
-                  <Link href="/dashboard/billing">Get Elite</Link>
-                </Button>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="w-full py-24 bg-primary text-white text-center relative overflow-hidden">
-          <div className="container px-4 md:px-6 mx-auto relative z-10 space-y-10">
-            <h2 className="text-4xl md:text-7xl font-black tracking-tighter font-headline leading-[1]">Prepare Smarter. <br />Score Higher.</h2>
-            <p className="text-lg md:text-xl font-bold opacity-90 max-w-xl mx-auto">Join thousands of students who have stopped manual note-making and started scoring better.</p>
-            <Button asChild size="lg" className="h-16 px-12 text-lg font-black rounded-2xl bg-white text-primary hover:bg-slate-50 shadow-2xl hover:scale-105 transition-transform">
-              <Link href="/dashboard">Join StudyPilot Free</Link>
-            </Button>
-          </div>
+        {/* Comparison */}
+        <section className="w-full py-24 bg-white border-b">
+           <div className="container px-4 mx-auto max-w-4xl">
+              <div className="text-center mb-12">
+                 <h2 className="text-3xl md:text-5xl font-black font-headline">Better than ChatGPT</h2>
+                 <p className="text-slate-400 font-bold mt-2">Specialized for semester exam architectures.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <Card className="p-8 rounded-[2rem] bg-slate-50/50 border-none opacity-60">
+                    <h3 className="text-center font-black text-slate-400 mb-6 uppercase tracking-widest text-sm">Generic AI</h3>
+                    <ul className="space-y-4">
+                       <li className="flex gap-2 text-xs font-bold text-slate-500"><ShieldQuestion className="h-4 w-4 shrink-0" /> Walls of generic text</li>
+                       <li className="flex gap-2 text-xs font-bold text-slate-500"><ShieldQuestion className="h-4 w-4 shrink-0" /> No mark-based structure</li>
+                       <li className="flex gap-2 text-xs font-bold text-slate-500"><ShieldQuestion className="h-4 w-4 shrink-0" /> Requires complex prompts</li>
+                    </ul>
+                 </Card>
+                 <Card className="p-8 rounded-[2rem] bg-primary/[0.03] border-4 border-primary relative overflow-hidden">
+                    <Zap className="absolute -top-4 -right-4 h-24 w-24 text-primary/10" />
+                    <h3 className="text-center font-black text-primary mb-6 uppercase tracking-widest text-sm">StudyPilot AI</h3>
+                    <ul className="space-y-4">
+                       <li className="flex gap-2 text-xs font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Structured 2/5/10 Mark answers</li>
+                       <li className="flex gap-2 text-xs font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Predicted probable questions</li>
+                       <li className="flex gap-2 text-xs font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Zero prompting needed</li>
+                    </ul>
+                 </Card>
+              </div>
+           </div>
         </section>
       </main>
 
@@ -219,16 +162,15 @@ export default function LandingPage() {
             <div className="space-y-4">
                <p className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Legal</p>
                <ul className="space-y-2 font-bold text-slate-600 text-[10px]">
-                 <li><Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-                 <li><Link href="#" className="hover:text-primary transition-colors">Terms of Use</Link></li>
-                 <li><Link href="#" className="hover:text-primary transition-colors">Refund Policy</Link></li>
+                 <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                 <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+                 <li><Link href="/refund" className="hover:text-primary transition-colors">Refund Policy</Link></li>
                </ul>
             </div>
             <div className="space-y-4">
                <p className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Support</p>
                <ul className="space-y-2 font-bold text-slate-600 text-[10px]">
-                 <li><Link href="#" className="hover:text-primary transition-colors">Help Center</Link></li>
-                 <li><Link href="#" className="hover:text-primary transition-colors">Contact Us</Link></li>
+                 <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
                  <li><Link href="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link></li>
                </ul>
             </div>

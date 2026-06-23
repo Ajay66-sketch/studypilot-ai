@@ -4,25 +4,62 @@
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { CheckCircle2, Star, Zap, Share2, Award, ShieldCheck, CreditCard, Rocket } from "lucide-react";
+import { CheckCircle2, Star, Zap, Share2, Award, ShieldCheck, CreditCard, Rocket, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { initiateCheckout } from "@/lib/razorpay-service";
+import { updateUserPlan } from "@/lib/firestore-services";
+import { trackEvent } from "@/lib/analytics";
+import { useState } from "react";
 
 export default function BillingPage() {
-  const { userData } = useAuth();
+  const { user, userData } = useAuth();
   const { toast } = useToast();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
   const isPro = userData?.plan === "pro";
   const isElite = userData?.plan === "premium";
 
-  const handleUpgrade = (plan: string) => {
-    toast({
-      title: "Checkout Securely",
-      description: `Redirecting to Secure Razorpay Gateway...`,
-    });
-    // This is where Razorpay integration would be triggered
-    setTimeout(() => {
-      alert(`Integration Info:\n\nYou selected the ${plan} plan. In a production environment, this would trigger the Razorpay standard payment modal for ₹${plan === 'Pro' ? '99' : '199'}.\n\nNext Step: Implement Razorpay Webhook to update Firestore user plan to "${plan.toLowerCase()}".`);
-    }, 1200);
+  const handleUpgrade = async (plan: 'Pro' | 'Elite') => {
+    if (!user) {
+      toast({ title: "Auth Required", description: "Please sign in to upgrade.", variant: "destructive" });
+      return;
+    }
+
+    setLoadingPlan(plan);
+    trackEvent(user.uid, 'checkout_initiated', { plan });
+
+    const amount = plan === 'Pro' ? 9900 : 19900;
+    const planKey = plan === 'Pro' ? 'pro' : 'premium';
+
+    try {
+      await initiateCheckout({
+        amount,
+        planName: plan,
+        userName: user.displayName || 'Student',
+        userEmail: user.email || '',
+        onSuccess: async (paymentId) => {
+          await updateUserPlan(user.uid, planKey as any, paymentId);
+          trackEvent(user.uid, 'payment_success', { plan, paymentId });
+          toast({ 
+            title: "Plan Activated!", 
+            description: `You are now a ${plan} member. Reloading your workspace...` 
+          });
+          setTimeout(() => window.location.reload(), 1500);
+        },
+        onFailure: (error) => {
+          trackEvent(user.uid, 'payment_failed', { plan, error: error.description });
+          toast({ 
+            title: "Payment Failed", 
+            description: error.description || "The transaction was not completed.", 
+            variant: "destructive" 
+          });
+          setLoadingPlan(null);
+        }
+      });
+    } catch (e) {
+      setLoadingPlan(null);
+    }
   };
 
   const copyReferral = () => {
@@ -40,9 +77,9 @@ export default function BillingPage() {
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto font-medium">All plans include university marking-scheme optimizations and India-first pricing.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 items-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 items-stretch">
         {/* Free Plan */}
-        <Card className={`relative flex flex-col rounded-[2.5rem] border-2 transition-all h-full ${!isPro && !isElite ? 'border-primary shadow-xl shadow-primary/5 bg-primary/[0.02]' : 'border-slate-100 opacity-80'}`}>
+        <Card className={`relative flex flex-col rounded-[2.5rem] border-2 transition-all ${!isPro && !isElite ? 'border-primary shadow-xl shadow-primary/5 bg-primary/[0.02]' : 'border-slate-100 opacity-80'}`}>
           {!isPro && !isElite && (
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black uppercase px-6 py-1.5 rounded-full shadow-lg">
               Active Plan
@@ -72,7 +109,7 @@ export default function BillingPage() {
         </Card>
 
         {/* Pro Plan */}
-        <Card className={`relative flex flex-col rounded-[2.8rem] border-4 overflow-hidden transition-all h-[110%] ${isPro ? 'border-primary shadow-2xl bg-primary/[0.02] z-20' : 'border-primary/20 shadow-xl'}`}>
+        <Card className={`relative flex flex-col rounded-[2.8rem] border-4 overflow-hidden transition-all md:scale-105 ${isPro ? 'border-primary shadow-2xl bg-primary/[0.02] z-20' : 'border-primary/20 shadow-xl'}`}>
           <div className="bg-primary text-white py-3 px-6 text-center text-[10px] font-black uppercase tracking-[0.3em]">
             Most Popular Choice
           </div>
@@ -88,21 +125,26 @@ export default function BillingPage() {
           </CardHeader>
           <CardContent className="flex-1 space-y-5 px-10">
             <ul className="space-y-4 text-sm font-bold text-slate-700">
-              <li className="flex items-center gap-3 text-primary font-black"><Zap className="h-5 w-5 shrink-0" /> Unlimited daily generations</li>
+              <li className="flex items-center gap-3 text-primary font-black"><Zap className="h-5 w-5 shrink-0" /> Unlimited generations</li>
               <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary shrink-0" /> High-speed responses</li>
               <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary shrink-0" /> Watermark-free PDFs</li>
               <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary shrink-0" /> Advanced tool chaining</li>
             </ul>
           </CardContent>
           <CardFooter className="pb-12 pt-8 px-10">
-            <Button className="w-full h-16 rounded-2xl font-black text-lg shadow-2xl shadow-primary/30" onClick={() => handleUpgrade('Pro')} disabled={isPro}>
+            <Button 
+              className="w-full h-16 rounded-2xl font-black text-lg shadow-2xl shadow-primary/30" 
+              onClick={() => handleUpgrade('Pro')} 
+              disabled={isPro || loadingPlan === 'Pro'}
+            >
+              {loadingPlan === 'Pro' ? <Loader2 className="h-6 w-6 animate-spin mr-2" /> : null}
               {isPro ? "Plan Active" : "Go Pro Now"}
             </Button>
           </CardFooter>
         </Card>
 
         {/* Elite Plan */}
-        <Card className={`relative flex flex-col rounded-[2.5rem] border-2 transition-all h-full ${isElite ? 'border-primary shadow-xl shadow-primary/5 bg-primary/[0.02]' : 'border-slate-200'}`}>
+        <Card className={`relative flex flex-col rounded-[2.5rem] border-2 transition-all ${isElite ? 'border-primary shadow-xl shadow-primary/5 bg-primary/[0.02]' : 'border-slate-200'}`}>
           <CardHeader className="pb-8 pt-10">
             <CardTitle className="text-xl font-black font-headline flex items-center gap-2">
               Elite Prep <Award className="h-6 w-6 text-primary" />
@@ -118,11 +160,17 @@ export default function BillingPage() {
               <li className="flex items-center gap-3 text-primary"><CheckCircle2 className="h-5 w-5 shrink-0" /> Everything in Pro</li>
               <li className="flex items-center gap-3 text-primary"><CheckCircle2 className="h-5 w-5 shrink-0" /> Exam Booster Mode</li>
               <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary shrink-0" /> Custom answer tone</li>
-              <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary shrink-0" /> Batch PDF processing</li>
+              <li className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-primary shrink-0" /> Priority features</li>
             </ul>
           </CardContent>
           <CardFooter className="pb-10 pt-6">
-            <Button variant="outline" className="w-full h-14 rounded-2xl font-black border-2 text-sm" onClick={() => handleUpgrade('Elite')} disabled={isElite}>
+            <Button 
+              variant="outline" 
+              className="w-full h-14 rounded-2xl font-black border-2 text-sm" 
+              onClick={() => handleUpgrade('Elite')} 
+              disabled={isElite || loadingPlan === 'Elite'}
+            >
+              {loadingPlan === 'Elite' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {isElite ? "Plan Active" : "Get Elite Prep"}
             </Button>
           </CardFooter>
@@ -183,4 +231,3 @@ export default function BillingPage() {
     </div>
   );
 }
-

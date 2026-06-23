@@ -30,6 +30,11 @@ export interface UserProfile {
   referredBy?: string;
   premiumUntil?: Timestamp;
   onboardingCompleted?: boolean;
+  // Subscription metadata
+  billingStatus?: 'active' | 'expired' | 'trial';
+  subscriptionId?: string;
+  paymentId?: string;
+  lastPaymentDate?: Timestamp;
 }
 
 export async function createUserProfile(uid: string, data: Partial<UserProfile>, referredByCode?: string) {
@@ -73,6 +78,16 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>,
 export async function updateOnboardingStatus(uid: string) {
   const userRef = doc(db, "users", uid);
   await updateDoc(userRef, { onboardingCompleted: true });
+}
+
+export async function updateUserPlan(uid: string, plan: "pro" | "premium", paymentId: string) {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    plan,
+    billingStatus: 'active',
+    paymentId,
+    lastPaymentDate: serverTimestamp()
+  });
 }
 
 // --- Document & Caching Services ---
