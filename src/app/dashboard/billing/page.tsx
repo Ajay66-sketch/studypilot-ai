@@ -8,9 +8,10 @@ import { CheckCircle2, Star, Zap, Share2, Award, ShieldCheck, CreditCard, Rocket
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { initiateCheckout } from "@/lib/razorpay-service";
-import { updateUserPlan } from "@/lib/firestore-services";
+import { verifyAndActivatePlan } from "@/app/actions/billing";
 import { trackEvent } from "@/lib/analytics";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function BillingPage() {
   const { user, userData } = useAuth();
@@ -38,14 +39,37 @@ export default function BillingPage() {
         planName: plan,
         userName: user.displayName || 'Student',
         userEmail: user.email || '',
-        onSuccess: async (paymentId) => {
-          await updateUserPlan(user.uid, planKey as any, paymentId);
-          trackEvent(user.uid, 'payment_success', { plan, paymentId });
-          toast({ 
-            title: "Plan Activated!", 
-            description: `You are now a ${plan} member. Reloading your workspace...` 
-          });
-          setTimeout(() => window.location.reload(), 1500);
+        onSuccess: async (response) => {
+          // STEP 1: UI Feedback
+          toast({ title: "Verifying...", description: "Securely activating your plan." });
+          
+          try {
+            // STEP 2: Secure Server-Side Verification
+            await verifyAndActivatePlan({
+              uid: user.uid,
+              plan: planKey,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature
+            });
+
+            // STEP 3: Final Success UX
+            trackEvent(user.uid, 'payment_success', { plan, paymentId: response.razorpay_payment_id });
+            toast({ 
+              title: "Plan Activated!", 
+              description: `You are now a ${plan} member. Reloading your workspace...` 
+            });
+            
+            // Hard refresh to sync all global states
+            setTimeout(() => window.location.reload(), 1500);
+          } catch (verifyError) {
+            toast({ 
+              variant: "destructive",
+              title: "Verification Error", 
+              description: "Payment succeeded but activation failed. Contact support@studypilotai.in" 
+            });
+            setLoadingPlan(null);
+          }
         },
         onFailure: (error) => {
           trackEvent(user.uid, 'payment_failed', { plan, error: error.description });
@@ -63,7 +87,8 @@ export default function BillingPage() {
   };
 
   const copyReferral = () => {
-    navigator.clipboard.writeText(userData?.referralCode || "");
+    if (!userData?.referralCode) return;
+    navigator.clipboard.writeText(userData.referralCode);
     toast({ title: "Copied!", description: "Share this code with your friends." });
   };
 
@@ -103,7 +128,7 @@ export default function BillingPage() {
           </CardContent>
           <CardFooter className="pb-10 pt-6">
             <Button variant="outline" className="w-full h-14 rounded-2xl font-black border-2 text-sm" disabled={!isPro && !isElite}>
-              {(!isPro && !isElite) ? "Current Active" : "Downgrade"}
+              {(!isPro && !isElite) ? "Current Active" : "Starter Mode"}
             </Button>
           </CardFooter>
         </Card>

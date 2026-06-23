@@ -13,9 +13,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { 
   FileText, BookOpen, AlertCircle, Sparkles, Copy, 
-  FileDown, Upload, History, Star, ShieldAlert,
+  Upload, History, Star, ShieldAlert,
   MousePointer2, Zap, ArrowRight, Layers, Rocket,
-  GraduationCap, Share2, Search, Trash2, Printer, Info,
+  GraduationCap, Printer, Info,
   Loader2
 } from "lucide-react";
 import { summarizeNotes } from "@/ai/flows/summarize-notes";
@@ -100,13 +100,15 @@ export default function Dashboard() {
       if (!title) setTitle(file.name.replace(".txt", ""));
       toast({ title: "Text Uploaded", description: "Extracted file content." });
     } else if (file.type === "application/pdf") {
-      toast({ title: "Reading PDF", description: "Extracting text layers..." });
+      // Set expectations honestly for PDF extraction
+      toast({ title: "Extracting PDF", description: "Note: Simple text PDFs work best. Scans may be messy." });
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
+        // Basic extraction fallback logic
         setInputText(content.slice(0, 10000));
         if (!title) setTitle(file.name.replace(".pdf", ""));
-        toast({ title: "PDF Extracted", description: "Review text for accuracy." });
+        toast({ title: "Check Extraction", description: "Review and edit text for accuracy." });
       };
       reader.readAsText(file);
     } else {
@@ -136,6 +138,7 @@ export default function Dashboard() {
         return;
       }
 
+      // Normalized hash for better caching
       const hash = generateHash(input, tool, `${subject}:${answerMode}:${isExamBooster}`);
       const cached = await findCachedDocument(user!.uid, hash);
       
@@ -143,7 +146,7 @@ export default function Dashboard() {
         setResult(cached.outputText);
         setCurrentDocId(cached.id || null);
         setIsFavorite(cached.isFavorite || false);
-        toast({ title: "Restored", description: "Using identical library version." });
+        toast({ title: "Restored", description: "Restoring from your library." });
         setLoading(false);
         return;
       }
@@ -189,7 +192,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error(error);
       trackEvent(user!.uid, 'generation_failed', { error: String(error) });
-      toast({ title: "AI Error", description: "Model busy, please try again.", variant: "destructive" });
+      toast({ title: "AI Error", description: "Something went wrong. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -283,7 +286,9 @@ export default function Dashboard() {
              {userData?.plan === 'free' ? (
                 <Badge variant="outline" className="font-black text-amber-600 border-amber-100 bg-amber-50 h-6 px-3 text-[10px]">Free Pilot</Badge>
              ) : (
-                <Badge className="bg-primary/10 text-primary border-none font-black flex gap-1.5 items-center px-4 h-6 text-[10px]"><Star className="h-3 w-3 fill-primary" /> {userData?.plan.toUpperCase()} PACK</Badge>
+                <Badge className="bg-primary/10 text-primary border-none font-black flex gap-1.5 items-center px-4 h-6 text-[10px] uppercase tracking-widest">
+                  <Star className="h-3 w-3 fill-primary" /> {userData?.plan} Member
+                </Badge>
              )}
           </div>
           <p className="text-muted-foreground font-medium text-sm md:text-lg">Paste notes or upload topics to generate study material.</p>
@@ -317,7 +322,7 @@ export default function Dashboard() {
                         <Info className="h-4 w-4 text-slate-300 cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs font-bold text-[10px] p-4 rounded-xl">
-                        Simple text PDFs work best. Images/Scans may need manual cleanup.
+                        Note: Basic PDF extraction. Images and complex scans may need cleanup.
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -337,7 +342,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <Label className="font-black text-[9px] text-slate-400 uppercase tracking-widest">Chapter Title / Topic</Label>
                 <Input 
-                  placeholder="e.g., OS Architectures - Unit 1" 
+                  placeholder="e.g., Operating Systems - Unit 1" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="rounded-xl border-slate-100 h-12 font-bold text-base shadow-sm"

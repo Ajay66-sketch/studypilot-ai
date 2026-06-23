@@ -30,11 +30,12 @@ export interface UserProfile {
   referredBy?: string;
   premiumUntil?: Timestamp;
   onboardingCompleted?: boolean;
-  // Subscription metadata
+  // Subscription metadata - These should be updated via server actions only in production
   billingStatus?: 'active' | 'expired' | 'trial';
   subscriptionId?: string;
   paymentId?: string;
   lastPaymentDate?: Timestamp;
+  lastVerifiedAt?: Timestamp;
 }
 
 export async function createUserProfile(uid: string, data: Partial<UserProfile>, referredByCode?: string) {
@@ -45,10 +46,11 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>,
     const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     let referredByUid = "";
     
+    // Prevent self-referral logic if possible (basic check)
     if (referredByCode) {
       const q = query(collection(db, "users"), where("referralCode", "==", referredByCode));
       const refSnap = await getDocs(q);
-      if (!refSnap.empty) {
+      if (!refSnap.empty && refSnap.docs[0].id !== uid) {
         referredByUid = refSnap.docs[0].id;
         await addDoc(collection(db, "referrals"), {
           referrerUid: referredByUid,
@@ -77,16 +79,24 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>,
 
 export async function updateOnboardingStatus(uid: string) {
   const userRef = doc(db, "users", uid);
+  // Safe field to update from client
   await updateDoc(userRef, { onboardingCompleted: true });
 }
 
-export async function updateUserPlan(uid: string, plan: "pro" | "premium", paymentId: string) {
+/**
+ * Update user plan after server-side verification.
+ * In a hardened production environment, this should only be callable
+ * by an admin SDK or a verified server action.
+ */
+export async function updateUserPlan(uid: string, plan: "pro" | "premium", paymentId: string, subscriptionId?: string) {
   const userRef = doc(db, "users", uid);
   await updateDoc(userRef, {
     plan,
     billingStatus: 'active',
     paymentId,
-    lastPaymentDate: serverTimestamp()
+    subscriptionId: subscriptionId || null,
+    lastPaymentDate: serverTimestamp(),
+    lastVerifiedAt: serverTimestamp()
   });
 }
 
@@ -109,7 +119,9 @@ export interface StudyDocument {
 }
 
 export function generateHash(text: string, type: string, extra?: string) {
-  const combined = `${type}:${text.trim().toLowerCase()}:${extra || ''}`;
+  // Normalize whitespace and casing for better cache hits
+  const normalizedText = text.trim().replace(/\s+/g, ' ').toLowerCase();
+  const combined = `${type}:${normalizedText}:${extra || ''}`;
   let hash = 0;
   for (let i = 0; i < combined.length; i++) {
     const char = combined.charCodeAt(i);
@@ -148,6 +160,7 @@ export async function toggleFavorite(id: string, isFavorite: boolean) {
 }
 
 export async function getUserDocuments(uid: string, filters?: { featureType?: string, search?: string, favoritesOnly?: boolean }) {
+  // Build a clean query - note: search and favorites filtering done in memory for standard SDK limit reasons if complex
   let q = query(collection(db, "documents"), where("uid", "==", uid), orderBy("createdAt", "desc"));
   
   const snap = await getDocs(q);
