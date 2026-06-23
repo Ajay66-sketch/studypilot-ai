@@ -35,16 +35,19 @@ const prompt = ai.definePrompt({
   output: { schema: GenerateExamAnswerOutputSchema },
   prompt: `You are an expert university professor specializing in high-scoring exam writing for the subject: {{{subject}}}.
 
-Generate a professional, structured exam answer for the topic: {{{questionOrTopic}}}.
+Generate a professional model answer for the question/topic: {{{questionOrTopic}}}.
 
 Style Configuration:
 - Mode: {{{answerMode}}} (Short = 2 Marks, Medium = 5 Marks, Long = 10 Marks, Bullet = Points only).
-- Exam Booster: {{#if isExamBooster}}ACTIVE. Structure the answer with academic headings, sub-headings, and maximize scoring potential based on Indian university patterns.{{else}}Standard. Ensure clarity and correct structure.{{/if}}
+- Exam Booster: {{#if isExamBooster}}ACTIVE. Structure with formal headings, sub-headings, and maximize mark-scoring potential.{{else}}Standard. Focus on clarity and correct structure.{{/if}}
 
 Requirements:
-1. Use simple but academic English.
-2. Ensure the "Main Answer Body" is detailed according to the requested mode.
-3. The "Exam Tip" should be a real tactical hint for writing this answer in a physical exam (e.g. "Draw a diagram of X", "Mention Case Law Y").`,
+1. Title: Create a high-scoring academic heading.
+2. Introduction: Start with a context-setting definition or importance statement.
+3. Main Body: Use structured paragraphs or numbered points. Use bold terms where relevant.
+4. Conclusion: Summarize the significance.
+5. Key Terms: List the most important academic terms used in the answer.
+6. Exam Tip: Provide a tactical scoring hint (e.g. "Draw a diagram of the X component", "Mention Case Law Y", "Highlight units in your final step").`,
 });
 
 const generateExamAnswerFlow = ai.defineFlow(

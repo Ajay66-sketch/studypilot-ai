@@ -33,14 +33,22 @@ const prompt = ai.definePrompt({
   name: 'summarizeNotesPrompt',
   input: {schema: SummarizeNotesInputSchema},
   output: {schema: SummarizeNotesOutputSchema},
-  prompt: `You are a professional study strategist. Summarize the following study notes for the subject: {{{subject}}}.
+  prompt: `You are a professional study strategist for university exams in India. 
 
-Goal: Turn raw information into clear, revisable study notes.
+Summarize the following study notes for the subject: {{{subject}}}.
+
+Goal: Transform messy, dense information into high-value, revisable study material.
+
+Requirements:
+1. Short Summary: Provide a 3-5 line plain-English overview of the entire topic.
+2. Bullet Notes: Use dense, academic-style bullet points that cover 100% of the core logic.
+3. Key Concepts: Extract the most important technical terms and provide clear 1-sentence definitions.
+4. Exam Highlights: A special "Scoring Tip" section explaining what professors specifically look for in this topic.
 
 {{#if isExamBooster}}
-Exam Booster Mode: ACTIVE. Focus heavily on scoring-relevant points, recurring exam patterns, and concise definitions.
+Exam Booster Mode: ACTIVE. Focus heavily on keywords that carry high marks in university scoring systems. Use a more formal, academic tone.
 {{else}}
-Standard Mode: Ensure academic clarity and comprehensive coverage of points.
+Standard Mode: Ensure clarity and student-friendly language.
 {{/if}}
 
 Notes:

@@ -50,7 +50,7 @@ export default function LandingPage() {
                 Notes into <span className="text-primary italic">Exam Answers</span> <br /> In Seconds.
               </h1>
               <p className="mx-auto max-w-2xl text-slate-500 text-base md:text-xl font-medium leading-relaxed">
-                Stop wasting hours manual note-making. StudyPilot transforms messy textbook content into high-scoring model answers and revision packs instantly.
+                Stop wasting hours on manual note-making. StudyPilot transforms messy textbooks into high-scoring model answers and revision packs instantly.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button asChild size="lg" className="h-14 px-10 text-lg font-black rounded-2xl shadow-2xl shadow-primary/20 hover:scale-105 transition-all group bg-primary">
@@ -72,81 +72,34 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* How it Works Section */}
-        <section id="how-it-works" className="w-full py-20 bg-slate-950 text-white relative">
+        {/* Comparison Section (Why not ChatGPT?) */}
+        <section className="w-full py-24 bg-white border-y border-slate-50">
           <div className="container px-4 md:px-6 mx-auto">
-            <div className="text-center space-y-4 mb-16">
-               <Badge className="bg-primary/20 text-primary border-none font-black text-[10px] uppercase tracking-[0.3em] px-4 py-1.5 rounded-full">The Workflow</Badge>
-              <h2 className="text-3xl md:text-5xl font-black tracking-tighter font-headline">From Messy to Exam Ready.</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                { step: "01", title: "Drop Your Notes", desc: "Paste raw textbook text, lecture notes, or upload a chapter PDF.", icon: Zap },
-                { step: "02", title: "Pick Your Tool", icon: Layers, desc: "Select Summarizer, Model Answers, Questions, or Revision Pack." },
-                { step: "03", title: "Ace Your Prep", icon: GraduationCap, desc: "Get structured, high-value material optimized for Indian marking schemes." }
-              ].map((item, i) => (
-                <div key={i} className="relative space-y-6 p-8 bg-white/5 rounded-[2rem] border border-white/10 group hover:bg-white/10 transition-colors">
-                  <div className="h-12 w-12 bg-primary rounded-xl flex items-center justify-center text-white shadow-xl shadow-primary/20 mb-4">
-                    <item.icon className="h-6 w-6" />
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-black font-headline tracking-tight">{item.title}</h3>
-                    <p className="text-slate-400 text-sm leading-relaxed font-medium">{item.desc}</p>
-                  </div>
-                  <div className="text-4xl font-black text-white/5 absolute bottom-4 right-6">{item.step}</div>
+             <div className="max-w-4xl mx-auto space-y-12">
+                <div className="text-center space-y-4">
+                  <h2 className="text-3xl md:text-5xl font-black font-headline tracking-tight">Why not just ChatGPT?</h2>
+                  <p className="text-slate-500 font-bold max-w-2xl mx-auto">ChatGPT is generic. StudyPilot is a specialized study architect that understands university marking schemes and student memory patterns.</p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Comparison Section */}
-        <section className="w-full py-20 bg-white overflow-hidden">
-          <div className="container px-4 md:px-6 mx-auto">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-                <div className="space-y-8">
-                   <h2 className="text-3xl md:text-5xl font-black font-headline tracking-tight leading-[1.1]">Why StudyPilot AI <br /><span className="text-primary text-xl md:text-3xl">Instead of ChatGPT?</span></h2>
-                   <p className="text-base md:text-lg text-slate-500 font-medium leading-relaxed max-w-lg">ChatGPT is generic. StudyPilot is a specialized study architect that understands university standards and student memory patterns.</p>
-                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {[
-                        "Structured for Semester Patterns",
-                        "Intro-Body-Conclusion Models",
-                        "Predicted 2, 5, 10 Mark Qs",
-                        "Exam Hall Checklists",
-                        "Instant Mnemonics",
-                        "One-Click Revision Packs"
-                      ].map((item, i) => (
-                        <li key={i} className="flex gap-3 items-center font-bold text-slate-700 text-sm">
-                          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> {item}
-                        </li>
-                      ))}
-                   </ul>
-                </div>
-                <div className="relative">
-                   <div className="absolute -inset-4 bg-primary/5 rounded-[2.5rem] blur-3xl opacity-50" />
-                   <Card className="relative border-2 border-slate-100 shadow-2xl rounded-[2.5rem] p-6 space-y-6 bg-white max-w-md mx-auto">
-                      <div className="flex gap-3 items-center border-b pb-4">
-                         <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center text-white"><Rocket className="h-4 w-4" /></div>
-                         <div className="space-y-0.5">
-                            <p className="font-black text-[10px] text-slate-400 uppercase tracking-widest">Target Score: 95%</p>
-                            <p className="font-black text-sm text-slate-900 tracking-tight">University Model Answer</p>
-                         </div>
-                      </div>
-                      <div className="space-y-4">
-                         <div className="space-y-2">
-                           <div className="h-3 w-1/3 bg-primary/20 rounded-full" />
-                           <div className="h-2 w-full bg-slate-50 rounded-full" />
-                           <div className="h-2 w-[90%] bg-slate-50 rounded-full" />
-                         </div>
-                         <div className="p-4 bg-slate-50 rounded-xl space-y-2">
-                            <div className="h-2 w-1/4 bg-primary/10 rounded-full" />
-                            <div className="h-2 w-full bg-white rounded-full" />
-                            <div className="h-2 w-full bg-white rounded-full" />
-                         </div>
-                      </div>
-                      <div className="pt-2 flex justify-center">
-                         <Badge className="bg-primary/5 text-primary border-none font-black px-4 py-1 rounded-full text-[9px] uppercase tracking-widest">Optimized Output</Badge>
-                      </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <Card className="p-8 rounded-[2rem] border-2 border-slate-100 bg-slate-50/30">
+                      <h3 className="font-black text-lg mb-6 text-slate-400 uppercase tracking-widest text-center">ChatGPT Output</h3>
+                      <ul className="space-y-4 opacity-50">
+                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> Generic wall of text</li>
+                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> No intro-body-conclusion structure</li>
+                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> Doesn't know "Most Probable" questions</li>
+                         <li className="flex gap-3 text-sm font-medium"><AlertCircle className="h-4 w-4 text-slate-400 shrink-0" /> Requires complex prompt engineering</li>
+                      </ul>
+                   </Card>
+                   <Card className="p-8 rounded-[2rem] border-4 border-primary bg-primary/[0.02] relative overflow-hidden">
+                      <Zap className="absolute -top-4 -right-4 h-24 w-24 text-primary/10" />
+                      <h3 className="font-black text-lg mb-6 text-primary uppercase tracking-widest text-center">StudyPilot AI Output</h3>
+                      <ul className="space-y-4">
+                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Structured Model Answers (2/5/10 Marks)</li>
+                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Automated Revision Mnemonics</li>
+                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> Predicted Probable Questions</li>
+                         <li className="flex gap-3 text-sm font-black text-slate-900"><CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> 1-Click Study Sheet Generation</li>
+                      </ul>
                    </Card>
                 </div>
              </div>
@@ -235,29 +188,6 @@ export default function LandingPage() {
                   <Link href="/dashboard/billing">Get Elite</Link>
                 </Button>
               </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ Section */}
-        <section className="w-full py-20 bg-slate-50">
-          <div className="container px-4 md:px-6 mx-auto max-w-3xl">
-            <div className="text-center space-y-2 mb-12">
-               <h2 className="text-3xl font-black font-headline tracking-tight">Got Questions?</h2>
-               <p className="text-slate-500 font-bold">Everything you need to know about StudyPilot.</p>
-            </div>
-            <div className="space-y-4">
-               {[
-                 { q: "How is this better than ChatGPT?", a: "StudyPilot uses specialized academic frameworks designed for Indian semester patterns. It doesn't just chat; it builds structured study packs that are ready for the exam hall." },
-                 { q: "Can I upload my own PDF notes?", a: "Yes! You can upload textbook chapters or handwritten scans (as PDFs) and we'll extract the core material for you instantly." },
-                 { q: "Is the free plan really free?", a: "Yes, you get 5 generations every single day forever. No credit card required to start your prep." },
-                 { q: "What is Exam Booster Mode?", a: "It's an Elite-only feature that applies university marking-scheme logic to your answers, adding probable scores and extra 'must-write' technical points." }
-               ].map((item, i) => (
-                 <div key={i} className="p-6 bg-white rounded-2xl shadow-sm border border-slate-100 group hover:border-primary/20 transition-colors">
-                   <h4 className="font-black font-headline mb-2 text-slate-900 flex gap-3"><ShieldQuestion className="h-5 w-5 text-primary shrink-0" /> {item.q}</h4>
-                   <p className="text-slate-600 font-medium text-sm leading-relaxed pl-8">{item.a}</p>
-                 </div>
-               ))}
             </div>
           </div>
         </section>
