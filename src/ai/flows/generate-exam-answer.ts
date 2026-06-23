@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview Generates structured exam-ready answers.
+ * @fileOverview Generates structured exam-ready answers with modes.
  */
 
 import { ai } from '@/ai/genkit';
@@ -9,14 +9,19 @@ import { z } from 'genkit';
 
 const GenerateExamAnswerInputSchema = z.object({
   questionOrTopic: z.string().describe('The question or topic.'),
+  subject: z.string().optional().describe('The subject field.'),
+  answerMode: z.enum(['short', 'medium', 'long', 'bullet']).default('medium').describe('The length/style of the answer.'),
+  isExamBooster: z.boolean().optional().describe('Whether to apply exam scoring enhancements.'),
 });
 export type GenerateExamAnswerInput = z.infer<typeof GenerateExamAnswerInputSchema>;
 
 const GenerateExamAnswerOutputSchema = z.object({
-  introduction: z.string().describe('A clear setting of context.'),
-  mainBody: z.string().describe('The core answer in student-friendly, easy-to-understand language.'),
+  title: z.string().describe('A suitable title for the answer.'),
+  introduction: z.string().describe('Context setting.'),
+  mainBody: z.string().describe('Structured core answer.'),
   conclusion: z.string().describe('Summary statement.'),
-  keywords: z.array(z.string()).describe('Exactly 3 important keywords to remember for this answer.'),
+  keyTerms: z.array(z.string()).describe('Important terms used in the answer.'),
+  examTip: z.string().describe('A pro-tip for writing this in an exam.'),
 });
 export type GenerateExamAnswerOutput = z.infer<typeof GenerateExamAnswerOutputSchema>;
 
@@ -28,10 +33,11 @@ const prompt = ai.definePrompt({
   name: 'generateExamAnswerPrompt',
   input: { schema: GenerateExamAnswerInputSchema },
   output: { schema: GenerateExamAnswerOutputSchema },
-  prompt: `You are an expert tutor. Generate a high-scoring exam answer for the given topic. 
-Use simple language but ensure it is structured professionally with an intro, body, and conclusion.
+  prompt: `Generate a professional, high-scoring exam answer for the topic: {{{questionOrTopic}}} in the subject: {{{subject}}}.
+Style: {{{answerMode}}}.
+{{#if isExamBooster}}Exam Booster Mode Active: Structure the answer with clear headings, sub-headings, and maximize scoring potential based on university standards.{{/if}}
 
-Question/Topic: {{{questionOrTopic}}}`,
+Use simple but academic language. Ensure it fits the requested mode length.`,
 });
 
 const generateExamAnswerFlow = ai.defineFlow(

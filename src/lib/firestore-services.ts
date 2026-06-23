@@ -14,7 +14,8 @@ import {
   increment,
   Timestamp,
   orderBy,
-  deleteDoc
+  deleteDoc,
+  limit
 } from "firebase/firestore";
 
 // --- User & Referral Services ---
@@ -28,6 +29,7 @@ export interface UserProfile {
   referralCode: string;
   referredBy?: string;
   premiumUntil?: Timestamp;
+  onboardingCompleted?: boolean;
 }
 
 export async function createUserProfile(uid: string, data: Partial<UserProfile>, referredByCode?: string) {
@@ -43,7 +45,6 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>,
       const refSnap = await getDocs(q);
       if (!refSnap.empty) {
         referredByUid = refSnap.docs[0].id;
-        // Logic for tracking referral
         await addDoc(collection(db, "referrals"), {
           referrerUid: referredByUid,
           referredUid: uid,
@@ -60,6 +61,7 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>,
       plan: "free",
       createdAt: Timestamp.now(),
       referralCode,
+      onboardingCompleted: false,
       ...(referredByUid && { referredBy: referredByUid })
     };
     await setDoc(userRef, profile);
@@ -68,10 +70,9 @@ export async function createUserProfile(uid: string, data: Partial<UserProfile>,
   return snap.data() as UserProfile;
 }
 
-export async function getReferralCount(uid: string) {
-  const q = query(collection(db, "referrals"), where("referrerUid", "==", uid));
-  const snap = await getDocs(q);
-  return snap.size;
+export async function updateOnboardingStatus(uid: string) {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, { onboardingCompleted: true });
 }
 
 // --- Document & Caching Services ---
@@ -86,10 +87,13 @@ export interface StudyDocument {
   createdAt: Timestamp;
   cachedHash: string;
   isPremiumOutput: boolean;
+  subject?: string;
+  answerMode?: string;
+  isExamBooster?: boolean;
 }
 
-export function generateHash(text: string, type: string) {
-  const combined = `${type}:${text.trim().toLowerCase()}`;
+export function generateHash(text: string, type: string, extra?: string) {
+  const combined = `${type}:${text.trim().toLowerCase()}:${extra || ''}`;
   let hash = 0;
   for (let i = 0; i < combined.length; i++) {
     const char = combined.charCodeAt(i);
@@ -103,7 +107,8 @@ export async function findCachedDocument(uid: string, hash: string) {
   const q = query(
     collection(db, "documents"), 
     where("uid", "==", uid), 
-    where("cachedHash", "==", hash)
+    where("cachedHash", "==", hash),
+    limit(1)
   );
   const snap = await getDocs(q);
   if (!snap.empty) return snap.docs[0].data() as StudyDocument;
@@ -121,11 +126,19 @@ export async function deleteDocument(id: string) {
   await deleteDoc(doc(db, "documents", id));
 }
 
-export async function getUserDocuments(uid: string, featureType?: string) {
+export async function getUserDocuments(uid: string, filters?: { featureType?: string, search?: string }) {
   let q = query(collection(db, "documents"), where("uid", "==", uid), orderBy("createdAt", "desc"));
-  if (featureType) {
-    q = query(collection(db, "documents"), where("uid", "==", uid), where("featureType", "==", featureType), orderBy("createdAt", "desc"));
-  }
+  
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() })) as StudyDocument[];
+  let results = snap.docs.map(d => ({ id: d.id, ...d.data() })) as StudyDocument[];
+
+  if (filters?.featureType) {
+    results = results.filter(d => d.featureType === filters.featureType);
+  }
+  if (filters?.search) {
+    const s = filters.search.toLowerCase();
+    results = results.filter(d => d.title.toLowerCase().includes(s));
+  }
+  
+  return results;
 }
