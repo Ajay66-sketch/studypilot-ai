@@ -14,21 +14,23 @@ import { Label } from "@/components/ui/label";
 import { 
   FileText, BookOpen, AlertCircle, Sparkles, Send, Copy, 
   FileDown, Upload, X, Trash2, Share2, ArrowRight, CheckCircle2,
-  GraduationCap, Zap, History, Star, ShieldAlert
+  GraduationCap, Zap, History, Star, ShieldAlert, MoreVertical,
+  MousePointer2, Settings, Bookmark, ExternalLink, RotateCcw
 } from "lucide-react";
 import { summarizeNotes } from "@/ai/flows/summarize-notes";
 import { generateExamAnswer } from "@/ai/flows/generate-exam-answer";
 import { generateImportantQuestions } from "@/ai/flows/generate-important-questions-flow";
 import { generateRevisionSheet } from "@/ai/flows/generate-revision-sheet";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
-import { saveDocument, generateHash, findCachedDocument, updateOnboardingStatus } from "@/lib/firestore-services";
+import { saveDocument, generateHash, findCachedDocument, updateOnboardingStatus, toggleFavorite } from "@/lib/firestore-services";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
-const SUBJECTS = ["General", "Computer Science", "Maths", "Physics", "Chemistry", "Commerce", "Biology", "Mechanical", "Electronics"];
+const SUBJECTS = ["General", "Computer Science", "Maths", "Physics", "Chemistry", "Commerce", "Biology", "Mechanical", "Electronics", "Law", "Management"];
 const ANSWER_MODES = [
   { id: 'short', label: 'Short (2 Marks)' },
   { id: 'medium', label: 'Medium (5 Marks)' },
@@ -46,6 +48,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [activeTool, setActiveTool] = useState("summarize");
   const [result, setResult] = useState<any>(null);
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [usage, setUsage] = useState({ used: 0, total: 5 });
   const [subject, setSubject] = useState("General");
   const [answerMode, setAnswerMode] = useState("medium");
@@ -55,6 +59,23 @@ export default function Dashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Check for restoration from History
+    const restored = sessionStorage.getItem('restore_doc');
+    if (restored) {
+      const doc = JSON.parse(restored);
+      setInputText(doc.inputText);
+      setTitle(doc.title);
+      setActiveTool(doc.featureType);
+      setResult(doc.outputText);
+      setCurrentDocId(doc.id || null);
+      setIsFavorite(doc.isFavorite || false);
+      setSubject(doc.subject || "General");
+      setAnswerMode(doc.answerMode || "medium");
+      setIsExamBooster(doc.isExamBooster || false);
+      sessionStorage.removeItem('restore_doc');
+      toast({ title: "Document Restored", description: "You can now chain this into other tools." });
+    }
+
     const fetchUsage = async () => {
       if (user) {
         const u = await checkUsageLimit(user.uid, userData?.plan || 'free');
@@ -75,14 +96,14 @@ export default function Dashboard() {
     if (file.type === "text/plain") {
       const text = await file.text();
       setInputText(text);
-      setTitle(file.name.replace(".txt", ""));
+      if (!title) setTitle(file.name.replace(".txt", ""));
     } else if (file.type === "application/pdf") {
-      toast({ title: "PDF Extraction", description: "Extracting readable text... For best results, ensure the PDF is not an image-only scan." });
+      toast({ title: "Extracting PDF", description: "This works best for text-based study material." });
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
         setInputText(content);
-        setTitle(file.name.replace(".pdf", ""));
+        if (!title) setTitle(file.name.replace(".pdf", ""));
       };
       reader.readAsText(file);
     } else {
@@ -95,27 +116,30 @@ export default function Dashboard() {
     const input = textOverride || inputText;
 
     if (!input.trim()) {
-      toast({ title: "Input Required", description: "Please enter some text or upload a file.", variant: "destructive" });
+      toast({ title: "Input Required", description: "Please enter some study material first.", variant: "destructive" });
       return;
     }
 
     setLoading(true);
     setResult(null);
+    setCurrentDocId(null);
+    setIsFavorite(false);
 
     try {
       const usageLimit = await checkUsageLimit(user!.uid, userData?.plan || 'free');
       if (!usageLimit.allowed) {
-        toast({ title: "Limit Reached", description: "Upgrade to Pro for unlimited daily generations!", variant: "destructive" });
+        toast({ title: "Limit Reached", description: "Upgrade to Pro for unlimited study prep!", variant: "destructive" });
         setLoading(false);
         return;
       }
 
-      // Hash includes extra params for better uniqueness
       const hash = generateHash(input, tool, `${subject}:${answerMode}:${isExamBooster}`);
       const cached = await findCachedDocument(user!.uid, hash);
       
       if (cached) {
         setResult(cached.outputText);
+        setCurrentDocId(cached.id || null);
+        setIsFavorite(cached.isFavorite || false);
         toast({ title: "Restored", description: "Fetched from your history." });
         setLoading(false);
         return;
@@ -143,7 +167,7 @@ export default function Dashboard() {
       await incrementUsage(user!.uid);
       setUsage(prev => ({ ...prev, used: prev.used + 1 }));
 
-      await saveDocument({
+      const savedDoc = await saveDocument({
         uid: user!.uid,
         inputText: input,
         outputText: aiResult,
@@ -153,26 +177,40 @@ export default function Dashboard() {
         isPremiumOutput: userData?.plan !== 'free',
         subject,
         answerMode: tool === 'answer' ? answerMode : undefined,
-        isExamBooster
+        isExamBooster,
+        isFavorite: false
       });
+      
+      setCurrentDocId(savedDoc.id);
 
-      toast({ title: "Success", description: "Study material generated!" });
+      toast({ title: "Success", description: "Study material generated and saved." });
     } catch (error) {
       console.error(error);
-      toast({ title: "Generation Error", description: "Something went wrong. Please check your internet and try again.", variant: "destructive" });
+      toast({ title: "Error", description: "AI pilot failed. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (!currentDocId) return;
+    const newStatus = !isFavorite;
+    try {
+      await toggleFavorite(currentDocId, newStatus);
+      setIsFavorite(newStatus);
+      toast({ title: newStatus ? "Favorited" : "Removed", description: "Updated in your library." });
+    } catch (e) {
+      toast({ title: "Error", description: "Could not favorite document." });
     }
   };
 
   const copyToClipboard = () => {
     const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: "Content copied to clipboard." });
+    toast({ title: "Copied!", description: "Content ready to paste." });
   };
 
   const chainToTool = (newTool: string) => {
-    // Extract textual context from current result to use as input for next tool
     let context = "";
     if (activeTool === "summarize") context = result.bulletPoints.join("\n");
     else if (activeTool === "answer") context = result.mainBody;
@@ -193,38 +231,40 @@ export default function Dashboard() {
     <div className="space-y-8 max-w-7xl mx-auto pb-20">
       {/* Onboarding Dialog */}
       <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
-        <DialogContent className="sm:max-w-md rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-black font-headline text-center">Welcome, Pilot! 🚀</DialogTitle>
-            <DialogDescription className="text-center text-lg">
-              Let's get you ready to ace your semester. Here are your 4 core tools:
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] p-10">
+          <DialogHeader className="text-center space-y-4">
+            <div className="p-4 bg-primary/10 rounded-2xl w-fit mx-auto">
+              <GraduationCap className="h-10 w-10 text-primary" />
+            </div>
+            <DialogTitle className="text-3xl font-black font-headline">Prepare for Exams Faster 🚀</DialogTitle>
+            <DialogDescription className="text-lg font-medium text-slate-500">
+              StudyPilot helps you score higher by transforming raw notes into university-ready material.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-              <Zap className="h-6 w-6 text-primary shrink-0" />
-              <div>
-                <p className="font-bold text-sm">Summarizer</p>
-                <p className="text-xs text-muted-foreground">Turn long notes into bullet points & key terms.</p>
-              </div>
+          <div className="grid grid-cols-2 gap-4 py-8">
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-2">
+              <Zap className="h-6 w-6 text-primary" />
+              <p className="font-black text-sm">Summarize</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">Turn chapters into bullet points.</p>
             </div>
-            <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-              <BookOpen className="h-6 w-6 text-primary shrink-0" />
-              <div>
-                <p className="font-bold text-sm">Exam Answer</p>
-                <p className="text-xs text-muted-foreground">Structured Intro-Body-Conclusion scoring answers.</p>
-              </div>
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-2">
+              <BookOpen className="h-6 w-6 text-primary" />
+              <p className="font-black text-sm">Exam Answer</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">Structured scoring answers.</p>
             </div>
-            <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-              <AlertCircle className="h-6 w-6 text-primary shrink-0" />
-              <div>
-                <p className="font-bold text-sm">Important Questions</p>
-                <p className="text-xs text-muted-foreground">Predict probable questions (2/5/10 marks).</p>
-              </div>
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-2">
+              <AlertCircle className="h-6 w-6 text-primary" />
+              <p className="font-black text-sm">Important Qs</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">Predicted 2/5/10 mark Qs.</p>
+            </div>
+            <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-2">
+              <FileText className="h-6 w-6 text-primary" />
+              <p className="font-black text-sm">Revision Sheets</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">One-page memory hacks.</p>
             </div>
           </div>
           <DialogFooter>
-            <Button className="w-full rounded-xl font-bold h-12" onClick={closeOnboarding}>Start Studying</Button>
+            <Button className="w-full rounded-2xl font-black h-14 text-lg" onClick={closeOnboarding}>Start Studying Now</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -232,67 +272,76 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-             <h1 className="text-4xl font-black font-headline tracking-tight text-primary">Pilot Workspace</h1>
-             {userData?.plan === 'free' && <Badge variant="outline" className="font-black text-amber-600 border-amber-200 bg-amber-50">Free Tier</Badge>}
-             {userData?.plan !== 'free' && <Badge className="bg-primary/10 text-primary border-none font-black flex gap-1 items-center"><Star className="h-3 w-3 fill-primary" /> Pro</Badge>}
+             <h1 className="text-4xl font-black font-headline tracking-tight text-slate-900">Study Workspace</h1>
+             {userData?.plan === 'free' && <Badge variant="outline" className="font-black text-amber-600 border-amber-200 bg-amber-50">Free Pilot</Badge>}
+             {userData?.plan !== 'free' && <Badge className="bg-primary/10 text-primary border-none font-black flex gap-1 items-center"><Star className="h-3 w-3 fill-primary" /> Pro Access</Badge>}
           </div>
-          <p className="text-muted-foreground">Professional study material generator for semester exams.</p>
+          <p className="text-muted-foreground font-medium">Generate university-grade study material in seconds.</p>
         </div>
         
         {userData?.plan === 'free' && (
-          <Card className="p-4 w-full md:w-72 bg-primary/5 border-primary/20 shadow-none rounded-[1.5rem]">
-            <div className="flex justify-between text-xs font-bold mb-2 uppercase tracking-wider">
-              <span>Daily Limit</span>
+          <Card className="p-5 w-full md:w-80 bg-white border-2 border-slate-100 shadow-sm rounded-[2rem]">
+            <div className="flex justify-between text-xs font-black mb-3 uppercase tracking-widest text-slate-500">
+              <span>Daily Prep Limit</span>
               <span>{usage.used} / {usage.total}</span>
             </div>
             <Progress value={(usage.used / usage.total) * 100} className="h-2" />
-            <Link href="/dashboard/billing" className="text-[10px] text-primary mt-2 font-black flex items-center gap-1 hover:underline">
-               Upgrade for unlimited generations <ArrowRight className="h-2 w-2" />
+            <Link href="/dashboard/billing" className="text-[10px] text-primary mt-3 font-black flex items-center gap-1 hover:underline">
+               Upgrade for unlimited exam prep <ArrowRight className="h-2 w-2" />
             </Link>
           </Card>
         )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-        {/* Input Sidebar */}
-        <div className="xl:col-span-4 space-y-6">
-          <Card className="border-2 border-slate-100 shadow-sm overflow-hidden rounded-[2rem]">
-            <CardHeader className="bg-slate-50/50 pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" /> Workspace Input
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 items-start">
+        {/* Input Column */}
+        <div className="xl:col-span-5 space-y-6">
+          <Card className="border-2 border-slate-50 shadow-sm rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="bg-slate-50/50 pb-6 border-b">
+              <CardTitle className="text-xl font-black font-headline flex items-center justify-between">
+                <span>Notes Input</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 text-primary font-bold hover:bg-primary/5 rounded-xl"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5 mr-2" /> Upload PDF
+                </Button>
               </CardTitle>
+              <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} accept=".txt,.pdf" />
             </CardHeader>
-            <CardContent className="pt-6 space-y-5">
+            <CardContent className="pt-8 space-y-6">
               <div className="space-y-2">
-                <Label className="font-black text-slate-700">Topic or Document Title</Label>
+                <Label className="font-black text-sm text-slate-600 uppercase tracking-widest">Topic / Unit Name</Label>
                 <Input 
                   placeholder="e.g., Photosynthesis - Biology Unit 2" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="rounded-xl border-slate-200"
+                  className="rounded-2xl border-slate-100 h-12 font-bold placeholder:font-medium"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-black text-slate-700">Subject</Label>
+                  <Label className="font-black text-sm text-slate-600 uppercase tracking-widest">Subject</Label>
                   <Select value={subject} onValueChange={setSubject}>
-                    <SelectTrigger className="rounded-xl">
+                    <SelectTrigger className="rounded-2xl h-12 border-slate-100 font-bold">
                       <SelectValue placeholder="Subject" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-2xl">
                       {SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 {activeTool === "answer" && (
                   <div className="space-y-2">
-                    <Label className="font-black text-slate-700">Length Mode</Label>
+                    <Label className="font-black text-sm text-slate-600 uppercase tracking-widest">Length</Label>
                     <Select value={answerMode} onValueChange={setAnswerMode}>
-                      <SelectTrigger className="rounded-xl">
+                      <SelectTrigger className="rounded-2xl h-12 border-slate-100 font-bold">
                         <SelectValue placeholder="Mode" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-2xl">
                         {ANSWER_MODES.map(m => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -300,40 +349,29 @@ export default function Dashboard() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="font-black text-slate-700">Content / Notes</Label>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 text-primary font-bold hover:bg-primary/5 p-0"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload PDF/TXT
-                  </Button>
-                  <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileUpload} accept=".txt,.pdf" />
-                </div>
+              <div className="space-y-3">
+                <Label className="font-black text-sm text-slate-600 uppercase tracking-widest">Content / Raw Notes</Label>
                 <Textarea
-                  placeholder="Paste your textbook notes or raw content here..."
-                  className="min-h-[300px] resize-none rounded-xl border-slate-200 focus-visible:ring-primary leading-relaxed"
+                  placeholder="Paste your raw notes or textbook material here..."
+                  className="min-h-[350px] resize-none rounded-[2rem] border-slate-100 focus-visible:ring-primary leading-relaxed p-6 font-medium text-slate-600"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-between p-6 bg-slate-50/50 rounded-[2rem] border-2 border-slate-50">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
                     <Label className="font-black text-sm">Exam Booster Mode</Label>
-                    {userData?.plan === 'free' && <ShieldAlert className="h-3 w-3 text-muted-foreground" />}
+                    <Badge className="bg-amber-100 text-amber-700 border-none text-[8px] font-black tracking-widest">PRO</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground font-medium">Scoring-focused structures (Premium)</p>
+                  <p className="text-[10px] text-muted-foreground font-bold">University marking-scheme optimization</p>
                 </div>
                 <Switch 
                   checked={isExamBooster} 
                   onCheckedChange={(checked) => {
                     if (userData?.plan === 'free') {
-                      toast({ title: "Premium Feature", description: "Exam Booster Mode is only for Pro/Premium users.", variant: "destructive" });
+                      toast({ title: "Pro Feature", description: "Exam Booster Mode is for Pro users.", variant: "destructive" });
                       return;
                     }
                     setIsExamBooster(checked);
@@ -341,44 +379,47 @@ export default function Dashboard() {
                 />
               </div>
             </CardContent>
-            <CardFooter className="bg-slate-50/50 p-4">
+            <CardFooter className="bg-slate-50/50 p-6 border-t">
               <Button 
-                className="w-full h-14 text-lg font-black rounded-2xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 gap-2" 
+                className="w-full h-16 text-xl font-black rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 gap-3" 
                 onClick={() => handleToolAction()}
                 disabled={loading || !inputText}
               >
                 {loading ? (
                    <div className="flex items-center gap-3">
-                    <div className="h-5 w-5 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="h-6 w-6 border-4 border-white border-t-transparent rounded-full animate-spin" />
                     Generating...
                   </div>
                 ) : (
                   <>
-                    <Sparkles className="h-5 w-5" />
-                    Generate {activeTool.replace("-", " ")}
+                    <Sparkles className="h-6 w-6" />
+                    Generate {activeTool}
                   </>
                 )}
               </Button>
             </CardFooter>
           </Card>
           
-          <Card className="border-none shadow-none bg-primary/5 rounded-[2rem] p-6">
-             <div className="flex gap-4 items-center mb-4">
-               <div className="p-3 bg-primary/10 rounded-xl">
-                 <History className="h-5 w-5 text-primary" />
-               </div>
-               <div className="space-y-1">
-                 <p className="font-black text-sm">Need your old results?</p>
-                 <Link href="/dashboard/history" className="text-xs text-primary font-bold hover:underline">View Your Study Library</Link>
-               </div>
-             </div>
+          <Card className="border-none shadow-none bg-primary/5 rounded-[2.5rem] p-8 flex justify-between items-center group cursor-pointer hover:bg-primary/10 transition-all" asChild>
+            <Link href="/dashboard/history">
+              <div className="flex gap-5 items-center">
+                <div className="p-4 bg-primary/10 rounded-2xl text-primary">
+                  <History className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-black text-lg">Study Library</p>
+                  <p className="text-xs text-muted-foreground font-bold">Access your favorite study packs</p>
+                </div>
+              </div>
+              <ArrowRight className="h-5 w-5 text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            </Link>
           </Card>
         </div>
 
-        {/* Output Area */}
-        <div className="xl:col-span-8 h-full">
+        {/* Output Column */}
+        <div className="xl:col-span-7 h-full">
           <Tabs value={activeTool} onValueChange={setActiveTool} className="w-full h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-4 bg-slate-100/80 p-1 mb-6 rounded-[1.5rem] h-14">
+            <TabsList className="grid w-full grid-cols-4 bg-slate-100/50 p-1.5 mb-8 rounded-[1.8rem] h-16">
               {[
                 { id: "summarize", label: "Summarizer", icon: Zap },
                 { id: "answer", label: "Exam Answer", icon: BookOpen },
@@ -388,191 +429,215 @@ export default function Dashboard() {
                 <TabsTrigger 
                   key={t.id}
                   value={t.id} 
-                  className="rounded-xl font-bold text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:shadow-md transition-all gap-2"
+                  className="rounded-2xl font-black text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-primary transition-all gap-2"
                 >
-                  <t.icon className="h-4 w-4 hidden md:block" />
+                  <t.icon className="h-4 w-4 hidden sm:block" />
                   {t.label.split(" ")[0]}
                 </TabsTrigger>
               ))}
             </TabsList>
 
-            <div className="flex-1 bg-white rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
+            <div className="flex-1 bg-white rounded-[3rem] border-2 border-slate-50 shadow-sm overflow-hidden flex flex-col min-h-[850px]">
               {!result && !loading && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-12 space-y-6">
-                  <div className="p-10 bg-slate-50 rounded-full animate-pulse">
-                    <GraduationCap className="h-24 w-24 text-slate-200" />
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-12 space-y-8">
+                  <div className="p-12 bg-slate-50 rounded-full animate-pulse relative">
+                    <GraduationCap className="h-28 w-28 text-slate-200" />
+                    <MousePointer2 className="h-8 w-8 text-primary absolute bottom-4 right-4" />
                   </div>
-                  <div className="space-y-3">
-                    <p className="font-black text-3xl font-headline text-slate-400 tracking-tight">Your Material Ready Room</p>
-                    <p className="text-slate-400 max-w-sm mx-auto font-medium">Input your notes on the left and choose a tool above. StudyPilot will transform them into exam-ready content.</p>
+                  <div className="space-y-4 max-w-sm">
+                    <p className="font-black text-4xl font-headline text-slate-300 tracking-tighter">Pilot Ready</p>
+                    <p className="text-slate-400 font-bold leading-relaxed">Paste your raw notes on the left and choose a study tool. StudyPilot will transform them into exam-ready material.</p>
                   </div>
                 </div>
               )}
 
               {loading && (
-                <div className="flex-1 flex flex-col items-center justify-center space-y-8 py-24">
+                <div className="flex-1 flex flex-col items-center justify-center space-y-10 py-32">
                   <div className="relative">
-                    <div className="h-32 w-32 border-6 border-primary/10 border-t-primary rounded-full animate-spin" />
+                    <div className="h-40 w-40 border-8 border-primary/10 border-t-primary rounded-full animate-spin" />
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                      <Zap className="h-12 w-12 text-primary animate-bounce" />
+                      <Zap className="h-16 w-16 text-primary animate-bounce" />
                     </div>
                   </div>
-                  <div className="text-center space-y-2">
-                    <p className="font-black text-3xl font-headline tracking-tighter">AI Pilot is Processing...</p>
-                    <p className="text-muted-foreground font-medium">Extracting scoring points for {subject}...</p>
+                  <div className="text-center space-y-3">
+                    <p className="font-black text-4xl font-headline tracking-tighter">Pilot is Processing...</p>
+                    <p className="text-muted-foreground font-bold text-lg">Optimizing for {subject} standards...</p>
                   </div>
                 </div>
               )}
 
               {result && (
-                <div className="flex-1 flex flex-col p-8 animate-in fade-in zoom-in-95 duration-500 overflow-auto">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b pb-8 gap-6">
-                    <div className="space-y-1">
+                <div className="flex-1 flex flex-col p-10 animate-in fade-in zoom-in-95 duration-700 overflow-auto scrollbar-hide">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 border-b pb-10 gap-8">
+                    <div className="space-y-2">
                       <div className="flex gap-2 items-center">
-                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black uppercase tracking-widest">
+                        <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full">
                           {subject}
                         </Badge>
-                        {isExamBooster && <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black uppercase tracking-widest">Booster Enabled</Badge>}
+                        {isExamBooster && <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full flex gap-1 items-center"><Star className="h-3 w-3 fill-amber-700" /> Booster Mode</Badge>}
                       </div>
-                      <h2 className="text-3xl font-black font-headline tracking-tight">{title || "Generated Material"}</h2>
+                      <h2 className="text-4xl font-black font-headline tracking-tighter text-slate-900">{title || "Untitled Material"}</h2>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" className="rounded-xl h-12 gap-2 border-slate-200 font-bold" onClick={copyToClipboard}>
+                    <div className="flex flex-wrap gap-3">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className={cn("h-12 w-12 rounded-2xl transition-colors", isFavorite ? "bg-yellow-50 text-yellow-500 border-yellow-100" : "border-slate-100 text-slate-300")}
+                        onClick={handleFavorite}
+                      >
+                        <Star className={cn("h-5 w-5", isFavorite && "fill-yellow-500")} />
+                      </Button>
+                      <Button variant="outline" className="rounded-2xl h-12 gap-2 border-slate-100 font-bold px-6" onClick={copyToClipboard}>
                         <Copy className="h-4 w-4" /> Copy
                       </Button>
-                      <Button className="rounded-xl h-12 gap-2 shadow-xl shadow-primary/10 font-black" onClick={() => {
-                        if (userData?.plan === 'free') toast({ title: "Premium Export", description: "Watermark-free PDF exports are for Pro users. Copy-pasting works for free users!" });
+                      <Button className="rounded-2xl h-12 gap-2 shadow-2xl shadow-primary/20 font-black px-8" onClick={() => {
+                        if (userData?.plan === 'free') toast({ title: "Premium Export", description: "Upgrade to Pro for clean PDF exports!" });
                         else window.print();
                       }}>
-                        <FileDown className="h-4 w-4" /> Export
+                        <FileDown className="h-5 w-5" /> Export
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-10 pb-12">
+                  <div className="space-y-12 pb-16">
                     {activeTool === "summarize" && (
-                      <div className="space-y-8">
-                        <section className="bg-primary/5 p-8 rounded-[2rem] border border-primary/10">
-                          <h3 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-4">Quick Summary</h3>
-                          <p className="text-slate-800 leading-relaxed text-xl font-medium">{result.shortSummary}</p>
+                      <div className="space-y-10">
+                        <section className="bg-primary/5 p-10 rounded-[2.5rem] border-2 border-primary/5">
+                          <h3 className="text-xs font-black text-primary uppercase tracking-[0.3em] mb-6">Quick Executive Summary</h3>
+                          <p className="text-slate-800 leading-relaxed text-2xl font-bold">{result.shortSummary}</p>
                         </section>
-                        <section className="space-y-6">
-                          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Key Takeaways</h3>
-                          <div className="grid grid-cols-1 gap-4">
+                        <section className="space-y-8">
+                          <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2"><Layers className="h-4 w-4" /> Comprehensive Notes</h3>
+                          <div className="grid grid-cols-1 gap-5">
                             {result.bulletPoints?.map((bp: string, i: number) => (
-                              <div key={i} className="flex gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-primary/20 transition-all">
-                                <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                                <p className="text-slate-700 font-medium leading-relaxed">{bp}</p>
+                              <div key={i} className="flex gap-6 p-6 bg-slate-50/50 rounded-3xl border border-slate-100 hover:border-primary/20 hover:bg-white transition-all shadow-sm group">
+                                <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">{i+1}</div>
+                                <p className="text-slate-700 font-bold leading-loose text-lg">{bp}</p>
                               </div>
                             ))}
                           </div>
                         </section>
                         <section>
-                          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Critical Terms</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest mb-8">Critical Exam Concepts</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {result.keyConcepts?.map((kc: any, i: number) => (
-                              <div key={i} className="p-5 bg-white rounded-2xl border-2 border-slate-50 group hover:border-primary/20 transition-all">
-                                <p className="font-black text-primary mb-2 text-lg">{kc.term}</p>
-                                <p className="text-sm text-slate-600 leading-relaxed font-medium">{kc.explanation}</p>
+                              <div key={i} className="p-8 bg-white rounded-[2.2rem] border-2 border-slate-50 shadow-sm group hover:border-primary/20 transition-all">
+                                <p className="font-black text-primary mb-3 text-xl">{kc.term}</p>
+                                <p className="text-slate-600 leading-relaxed font-bold text-sm italic">{kc.explanation}</p>
                               </div>
                             ))}
                           </div>
                         </section>
-                        <section className="bg-amber-50 p-8 rounded-[2rem] border border-amber-100">
-                           <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest mb-4">Exam Highlights</h3>
-                           <p className="text-amber-900 font-bold leading-relaxed">{result.examHighlights}</p>
+                        <section className="bg-amber-50 p-10 rounded-[2.5rem] border-2 border-amber-100/50 flex gap-6 items-start">
+                           <ShieldAlert className="h-8 w-8 text-amber-600 shrink-0 mt-1" />
+                           <div className="space-y-3">
+                             <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest">Exam Predictor Logic</h3>
+                             <p className="text-amber-900 font-black leading-relaxed text-xl">{result.examHighlights}</p>
+                           </div>
                         </section>
                       </div>
                     )}
 
                     {activeTool === "answer" && (
-                      <div className="space-y-10 max-w-3xl mx-auto">
-                        <div className="text-center space-y-3 mb-12">
-                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Structured Answer Guide</p>
-                          <h3 className="text-4xl font-black font-headline tracking-tight">{result.title}</h3>
+                      <div className="space-y-12 max-w-4xl mx-auto">
+                        <div className="text-center space-y-4 mb-16">
+                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.5em]">Structured Model Answer</p>
+                          <h3 className="text-5xl font-black font-headline tracking-tighter text-slate-900 leading-tight">{result.title}</h3>
                         </div>
-                        <div className="space-y-6">
-                          <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest">Introduction</div>
-                          <p className="text-slate-800 text-lg leading-relaxed font-medium border-l-4 border-slate-100 pl-6 italic">{result.introduction}</p>
+                        <div className="space-y-8">
+                          <div className="inline-flex items-center px-6 py-2 rounded-full bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest">Part 1: Introduction</div>
+                          <p className="text-slate-800 text-2xl leading-relaxed font-bold border-l-8 border-primary/20 pl-8 italic">{result.introduction}</p>
                         </div>
-                        <div className="space-y-6">
-                          <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest">Main Answer Body</div>
-                          <div className="text-slate-700 text-lg leading-loose whitespace-pre-line font-medium bg-slate-50/50 p-8 rounded-[2rem]">{result.mainBody}</div>
+                        <div className="space-y-8">
+                          <div className="inline-flex items-center px-6 py-2 rounded-full bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest">Part 2: Main Content Body</div>
+                          <div className="text-slate-700 text-xl leading-loose whitespace-pre-line font-bold bg-slate-50/50 p-10 rounded-[3rem] border-2 border-slate-50">{result.mainBody}</div>
                         </div>
-                        <div className="space-y-6">
-                          <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest">Conclusion</div>
-                          <p className="text-slate-800 text-lg leading-relaxed font-medium">{result.conclusion}</p>
+                        <div className="space-y-8">
+                          <div className="inline-flex items-center px-6 py-2 rounded-full bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest">Part 3: Final Conclusion</div>
+                          <p className="text-slate-800 text-2xl leading-relaxed font-bold">{result.conclusion}</p>
                         </div>
-                        <div className="pt-10 border-t flex flex-wrap gap-3 items-center">
-                          <span className="text-xs font-black text-slate-400 uppercase mr-2">Keywords:</span>
+                        <div className="pt-12 border-t flex flex-wrap gap-4 items-center justify-center">
+                          <span className="text-xs font-black text-slate-300 uppercase mr-4 tracking-widest">Keywords:</span>
                           {result.keyTerms?.map((kt: string, i: number) => (
-                            <Badge key={i} className="bg-primary/5 text-primary border-none px-4 py-1.5 rounded-full font-bold">{kt}</Badge>
+                            <Badge key={i} className="bg-primary/5 text-primary border-none px-6 py-2.5 rounded-full font-black text-xs hover:bg-primary hover:text-white transition-colors cursor-default">{kt}</Badge>
                           ))}
                         </div>
-                        <div className="p-6 bg-primary text-white rounded-[1.5rem] flex gap-4 items-start shadow-xl shadow-primary/20">
-                           <Zap className="h-6 w-6 shrink-0 fill-white/20" />
-                           <div className="space-y-1">
-                             <p className="text-xs font-black uppercase tracking-widest opacity-70">Exam Tip</p>
-                             <p className="font-bold">{result.examTip}</p>
+                        <div className="p-10 bg-slate-900 text-white rounded-[3rem] flex gap-8 items-start shadow-2xl relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:rotate-12 transition-transform">
+                             <Zap className="h-40 w-40" />
+                           </div>
+                           <div className="p-4 bg-primary rounded-2xl shrink-0">
+                             <MousePointer2 className="h-8 w-8 text-white" />
+                           </div>
+                           <div className="space-y-3 relative z-10">
+                             <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Exam Hall Tip</p>
+                             <p className="text-2xl font-black font-headline leading-tight">{result.examTip}</p>
                            </div>
                         </div>
                       </div>
                     )}
 
                     {activeTool === "questions" && (
-                      <div className="space-y-12">
-                        <section className="bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100">
-                           <h3 className="text-sm font-black text-rose-600 uppercase tracking-widest mb-6 flex items-center gap-2">
-                             <AlertCircle className="h-5 w-5" /> High Probability Questions
+                      <div className="space-y-16">
+                        <section className="bg-rose-50/50 p-10 rounded-[3.5rem] border-4 border-rose-50 relative overflow-hidden group">
+                           <div className="absolute top-[-10%] right-[-10%] h-64 w-64 bg-rose-500/5 rounded-full blur-3xl" />
+                           <h3 className="text-sm font-black text-rose-600 uppercase tracking-[0.3em] mb-10 flex items-center gap-4">
+                             <AlertCircle className="h-8 w-8" /> High Probability Exam Questions
                            </h3>
-                           <div className="grid grid-cols-1 gap-3">
+                           <div className="grid grid-cols-1 gap-5 relative z-10">
                               {result.mostProbable?.map((q: string, i: number) => (
-                                <div key={i} className="p-5 bg-white rounded-2xl font-black text-rose-900 border-2 border-rose-100/50 shadow-sm">
+                                <div key={i} className="p-8 bg-white rounded-[2.2rem] font-black text-2xl text-rose-950 border-2 border-rose-100 shadow-xl shadow-rose-100/50 flex gap-6 items-center hover:scale-[1.02] transition-transform cursor-default">
+                                  <span className="text-rose-200 text-5xl italic font-headline opacity-50">0{i+1}</span>
                                   {q}
                                 </div>
                               ))}
                            </div>
                         </section>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                           <div className="space-y-6">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Short (2 Marks)</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                           <div className="space-y-8">
+                              <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">Short Prep (2 Marks)</h4>
                               {result.twoMarkQuestions?.map((q: string, i: number) => (
-                                <div key={i} className="flex gap-4 items-start">
-                                  <span className="h-7 w-7 rounded-lg bg-slate-50 flex items-center justify-center text-xs font-black text-slate-400 shrink-0">{i+1}</span>
-                                  <p className="text-sm font-bold text-slate-700 pt-1">{q}</p>
+                                <div key={i} className="flex gap-5 items-start bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:bg-white hover:border-primary/20 transition-all">
+                                  <span className="h-8 w-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-slate-400 shrink-0">{i+1}</span>
+                                  <p className="text-lg font-bold text-slate-700 pt-1 leading-relaxed">{q}</p>
                                 </div>
                               ))}
                            </div>
-                           <div className="space-y-6">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Medium (5 Marks)</h4>
+                           <div className="space-y-8">
+                              <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">Standard (5 Marks)</h4>
                               {result.fiveMarkQuestions?.map((q: string, i: number) => (
-                                <div key={i} className="flex gap-4 items-start">
-                                  <span className="h-7 w-7 rounded-lg bg-slate-50 flex items-center justify-center text-xs font-black text-slate-400 shrink-0">{i+1}</span>
-                                  <p className="text-sm font-bold text-slate-700 pt-1">{q}</p>
+                                <div key={i} className="flex gap-5 items-start bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:bg-white hover:border-primary/20 transition-all">
+                                  <span className="h-8 w-8 rounded-xl bg-white shadow-sm flex items-center justify-center text-xs font-black text-slate-400 shrink-0">{i+1}</span>
+                                  <p className="text-lg font-bold text-slate-700 pt-1 leading-relaxed">{q}</p>
                                 </div>
                               ))}
                            </div>
                         </div>
                         
-                        <section>
-                           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Essay Type (10 Marks)</h3>
-                           <div className="space-y-4">
+                        <section className="space-y-8">
+                           <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">Essay Type / Section C (10 Marks)</h3>
+                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                               {result.tenMarkQuestions?.map((q: string, i: number) => (
-                                <div key={i} className="p-6 bg-slate-50 rounded-[1.5rem] font-bold text-slate-800 border-2 border-transparent hover:border-primary/10 transition-all">
+                                <div key={i} className="p-8 bg-slate-50 rounded-[2.5rem] font-bold text-xl text-slate-800 border-2 border-transparent hover:border-primary/20 hover:bg-white transition-all shadow-sm">
                                   {q}
                                 </div>
                               ))}
                            </div>
                         </section>
 
-                        <section className="bg-slate-900 p-8 rounded-[2rem] text-white">
-                           <h3 className="text-xs font-black text-primary uppercase tracking-widest mb-4">Viva/Oral Prep</h3>
-                           <ul className="space-y-4">
+                        <section className="bg-slate-900 p-12 rounded-[3.5rem] text-white relative overflow-hidden">
+                           <div className="absolute bottom-0 right-0 p-10 opacity-5">
+                             <Users className="h-64 w-64" />
+                           </div>
+                           <h3 className="text-sm font-black text-primary uppercase tracking-[0.3em] mb-10 flex items-center gap-3">
+                             <MousePointer2 className="h-6 w-6" /> Viva / Oral Prep Questions
+                           </h3>
+                           <ul className="grid grid-cols-1 md:grid-cols-2 gap-8">
                               {result.vivaQuestions?.map((v: string, i: number) => (
-                                <li key={i} className="flex gap-4 items-start opacity-80 hover:opacity-100 transition-opacity">
-                                  <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
-                                  <p className="font-medium">{v}</p>
+                                <li key={i} className="flex gap-6 items-start opacity-70 hover:opacity-100 transition-opacity">
+                                  <div className="h-2 w-2 rounded-full bg-primary mt-3 shrink-0" />
+                                  <p className="text-lg font-bold italic leading-relaxed">{v}</p>
                                 </li>
                               ))}
                            </ul>
@@ -581,22 +646,26 @@ export default function Dashboard() {
                     )}
 
                     {activeTool === "revision" && (
-                      <div className="space-y-12 bg-slate-50/50 p-10 rounded-[3rem] border-2 border-slate-50">
-                        <div className="text-center space-y-2 mb-10">
-                          <p className="text-xs font-black text-primary uppercase tracking-[0.4em]">One-Page Master Sheet</p>
-                          <h3 className="text-4xl font-black font-headline tracking-tighter">Last Minute Revision</h3>
+                      <div className="space-y-16 bg-slate-50/30 p-12 rounded-[4rem] border-4 border-slate-50/50">
+                        <div className="text-center space-y-4 mb-16">
+                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.6em]">One-Page Memory Pack</p>
+                          <h3 className="text-6xl font-black font-headline tracking-tighter text-slate-900 leading-[0.8]">Last Minute <br />Revision.</h3>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                           <section className="space-y-4">
-                             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Summary</h4>
-                             <p className="text-slate-700 leading-relaxed font-bold whitespace-pre-line bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm">{result.quickNotes}</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+                           <section className="space-y-6">
+                             <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Master Concept Summary</h4>
+                             <div className="bg-white p-10 rounded-[3rem] border-2 border-slate-50 shadow-2xl shadow-slate-200/50 text-slate-800 leading-loose font-bold text-xl whitespace-pre-line relative group">
+                                <div className="absolute top-6 right-6 text-primary/10 group-hover:text-primary/30 transition-colors"><Zap className="h-10 w-10" /></div>
+                                {result.quickNotes}
+                             </div>
                            </section>
-                           <section className="space-y-4">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Formulas & Definitions</h4>
-                              <div className="space-y-3">
+                           <section className="space-y-6">
+                              <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Key Formulas & Definitions</h4>
+                              <div className="space-y-5">
                                 {result.formulasAndDefinitions?.map((f: string, i: number) => (
-                                  <div key={i} className="p-4 bg-white rounded-xl border border-slate-100 text-sm font-bold text-slate-600">
+                                  <div key={i} className="p-6 bg-white rounded-2xl border-2 border-slate-100 text-lg font-black text-slate-700 flex gap-4 items-center">
+                                    <Badge className="bg-slate-100 text-slate-400 border-none px-3 font-black text-[10px]">{i+1}</Badge>
                                     {f}
                                   </div>
                                 ))}
@@ -604,24 +673,26 @@ export default function Dashboard() {
                            </section>
                         </div>
 
-                        <section>
-                           <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Mnemonics (Memory Tricks)</h4>
-                           <div className="flex flex-wrap gap-4">
+                        <section className="space-y-8">
+                           <h4 className="text-xs font-black text-slate-300 uppercase tracking-widest">Mnemonics (Memory Shortcuts)</h4>
+                           <div className="flex flex-wrap gap-5">
                              {result.mnemonics?.map((m: string, i: number) => (
-                               <div key={i} className="px-6 py-3 bg-primary text-white rounded-full font-black text-sm shadow-xl shadow-primary/20">
+                               <div key={i} className="px-10 py-5 bg-primary text-white rounded-[2rem] font-black text-xl shadow-2xl shadow-primary/30 hover:scale-105 transition-transform cursor-default">
                                  {m}
                                </div>
                              ))}
                            </div>
                         </section>
 
-                        <section className="bg-white p-8 rounded-[2rem] border-2 border-primary/10">
-                           <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-6">Hall Checklist</h4>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <section className="bg-white p-12 rounded-[3.5rem] border-4 border-primary/5 shadow-sm">
+                           <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-10 flex items-center gap-3"><CheckCircle2 className="h-5 w-5" /> Hall Entry Checklist</h4>
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                               {result.lastMinuteChecklist?.map((c: string, i: number) => (
-                                <div key={i} className="flex gap-3 items-center p-3">
-                                   <div className="h-5 w-5 rounded-md border-2 border-primary shrink-0" />
-                                   <p className="text-sm font-bold text-slate-700">{c}</p>
+                                <div key={i} className="flex gap-5 items-center p-4 bg-slate-50/50 rounded-2xl border border-slate-50 group hover:border-primary/20 transition-all">
+                                   <div className="h-8 w-8 rounded-xl border-4 border-primary/20 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                                     <CheckCircle2 className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                   </div>
+                                   <p className="text-lg font-black text-slate-700">{c}</p>
                                 </div>
                               ))}
                            </div>
@@ -631,28 +702,31 @@ export default function Dashboard() {
                   </div>
                   
                   {/* Chaining UI */}
-                  <div className="mt-auto pt-10 border-t">
-                    <div className="flex flex-col items-center space-y-4">
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Next Step in your Study Cycle?</p>
-                      <div className="flex flex-wrap justify-center gap-3">
+                  <div className="mt-auto pt-12 border-t">
+                    <div className="flex flex-col items-center space-y-6">
+                      <div className="flex items-center gap-3">
+                        <Badge className="bg-primary/5 text-primary border-none px-4 py-1.5 font-black text-[10px] tracking-widest">NEXT STUDY STEP</Badge>
+                      </div>
+                      <p className="text-sm font-black text-slate-400 uppercase tracking-widest text-center">Transform this result into another study format</p>
+                      <div className="flex flex-wrap justify-center gap-4 pb-4">
                         {activeTool !== "summarize" && (
-                          <Button variant="secondary" className="rounded-xl h-10 font-bold" onClick={() => chainToTool("summarize")}>
-                            Summarize This
+                          <Button variant="outline" className="rounded-2xl h-14 font-black border-2 border-slate-100 hover:border-primary hover:text-primary px-8 transition-all" onClick={() => chainToTool("summarize")}>
+                            <Zap className="h-4 w-4 mr-2" /> Summarize This
                           </Button>
                         )}
                         {activeTool !== "answer" && (
-                          <Button variant="secondary" className="rounded-xl h-10 font-bold" onClick={() => chainToTool("answer")}>
-                            Generate Answer
+                          <Button variant="outline" className="rounded-2xl h-14 font-black border-2 border-slate-100 hover:border-primary hover:text-primary px-8 transition-all" onClick={() => chainToTool("answer")}>
+                            <BookOpen className="h-4 w-4 mr-2" /> Create Model Answer
                           </Button>
                         )}
                         {activeTool !== "questions" && (
-                          <Button variant="secondary" className="rounded-xl h-10 font-bold" onClick={() => chainToTool("questions")}>
-                            Create Questions
+                          <Button variant="outline" className="rounded-2xl h-14 font-black border-2 border-slate-100 hover:border-primary hover:text-primary px-8 transition-all" onClick={() => chainToTool("questions")}>
+                            <AlertCircle className="h-4 w-4 mr-2" /> Extract Questions
                           </Button>
                         )}
                         {activeTool !== "revision" && (
-                          <Button variant="secondary" className="rounded-xl h-10 font-bold" onClick={() => chainToTool("revision")}>
-                            Revision Sheet
+                          <Button variant="outline" className="rounded-2xl h-14 font-black border-2 border-slate-100 hover:border-primary hover:text-primary px-8 transition-all" onClick={() => chainToTool("revision")}>
+                            <FileText className="h-4 w-4 mr-2" /> Revision Pack
                           </Button>
                         )}
                       </div>

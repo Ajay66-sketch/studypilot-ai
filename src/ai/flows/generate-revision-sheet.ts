@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview Generates dense revision sheets with mnemonics.
+ * @fileOverview Generates concise revision sheets with memory hacks.
  */
 
 import {ai} from '@/ai/genkit';
@@ -14,10 +14,10 @@ const GenerateRevisionSheetInputSchema = z.object({
 export type GenerateRevisionSheetInput = z.infer<typeof GenerateRevisionSheetInputSchema>;
 
 const GenerateRevisionSheetOutputSchema = z.object({
-  quickNotes: z.string().describe('Concise revision summary.'),
-  formulasAndDefinitions: z.array(z.string()).describe('Key formulas or definitions.'),
-  mnemonics: z.array(z.string()).describe('Memory shortcuts.'),
-  lastMinuteChecklist: z.array(z.string()).describe('5 bullet points to check before entering the hall.'),
+  quickNotes: z.string().describe('Dense revision summary for fast reading.'),
+  formulasAndDefinitions: z.array(z.string()).describe('Key formulas or critical definitions.'),
+  mnemonics: z.array(z.string()).describe('3-5 memory shortcuts/acronyms.'),
+  lastMinuteChecklist: z.array(z.string()).describe('5 bullet points to check before entering the exam hall.'),
 });
 export type GenerateRevisionSheetOutput = z.infer<typeof GenerateRevisionSheetOutputSchema>;
 
@@ -29,8 +29,14 @@ const prompt = ai.definePrompt({
   name: 'generateRevisionSheetPrompt',
   input: {schema: GenerateRevisionSheetInputSchema},
   output: {schema: GenerateRevisionSheetOutputSchema},
-  prompt: `Create a dense, high-value one-page revision sheet for the subject: {{{subject}}}. 
-Include mnemonics and a last-minute checklist.
+  prompt: `Create a dense, high-value one-page revision pack for the subject: {{{subject}}}. 
+
+Design this for a student who has 15 minutes before the exam starts.
+
+Include:
+1. Mnemonics: Creative memory tricks to remember lists or complex processes.
+2. Checklist: Tactical points (e.g. "Check sign convention", "Don't forget the units").
+3. Formulas/Definitions: The "must-knows".
 
 Topic/Notes:
 {{{topic}}}`,

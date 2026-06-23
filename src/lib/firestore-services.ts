@@ -90,6 +90,7 @@ export interface StudyDocument {
   subject?: string;
   answerMode?: string;
   isExamBooster?: boolean;
+  isFavorite?: boolean;
 }
 
 export function generateHash(text: string, type: string, extra?: string) {
@@ -111,7 +112,7 @@ export async function findCachedDocument(uid: string, hash: string) {
     limit(1)
   );
   const snap = await getDocs(q);
-  if (!snap.empty) return snap.docs[0].data() as StudyDocument;
+  if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() } as StudyDocument;
   return null;
 }
 
@@ -126,7 +127,12 @@ export async function deleteDocument(id: string) {
   await deleteDoc(doc(db, "documents", id));
 }
 
-export async function getUserDocuments(uid: string, filters?: { featureType?: string, search?: string }) {
+export async function toggleFavorite(id: string, isFavorite: boolean) {
+  const docRef = doc(db, "documents", id);
+  await updateDoc(docRef, { isFavorite });
+}
+
+export async function getUserDocuments(uid: string, filters?: { featureType?: string, search?: string, favoritesOnly?: boolean }) {
   let q = query(collection(db, "documents"), where("uid", "==", uid), orderBy("createdAt", "desc"));
   
   const snap = await getDocs(q);
@@ -138,6 +144,9 @@ export async function getUserDocuments(uid: string, filters?: { featureType?: st
   if (filters?.search) {
     const s = filters.search.toLowerCase();
     results = results.filter(d => d.title.toLowerCase().includes(s));
+  }
+  if (filters?.favoritesOnly) {
+    results = results.filter(d => d.isFavorite);
   }
   
   return results;
