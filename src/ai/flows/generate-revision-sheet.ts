@@ -1,22 +1,21 @@
+
 'use server';
 /**
- * @fileOverview A Genkit flow for generating one-page revision sheets from a given topic.
- *
- * - generateRevisionSheet - A function that handles the revision sheet generation process.
- * - GenerateRevisionSheetInput - The input type for the generateRevisionSheet function.
- * - GenerateRevisionSheetOutput - The return type for the generateRevisionSheet function.
+ * @fileOverview Generates quick revision sheets.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateRevisionSheetInputSchema = z.object({
-  topic: z.string().describe('The topic for which to generate a revision sheet.'),
+  topic: z.string().describe('The topic or notes.'),
 });
 export type GenerateRevisionSheetInput = z.infer<typeof GenerateRevisionSheetInputSchema>;
 
 const GenerateRevisionSheetOutputSchema = z.object({
-  revisionSheet: z.string().describe('A comprehensive one-page revision sheet.'),
+  quickNotes: z.string().describe('One-page style quick revision notes.'),
+  formulasAndDefinitions: z.array(z.string()).describe('Key formulas or specific definitions.'),
+  mnemonics: z.array(z.string()).describe('Memory shortcuts or mnemonics.'),
 });
 export type GenerateRevisionSheetOutput = z.infer<typeof GenerateRevisionSheetOutputSchema>;
 
@@ -28,11 +27,11 @@ const prompt = ai.definePrompt({
   name: 'generateRevisionSheetPrompt',
   input: {schema: GenerateRevisionSheetInputSchema},
   output: {schema: GenerateRevisionSheetOutputSchema},
-  prompt: `You are an expert academic assistant.
+  prompt: `Create a dense, high-value revision sheet. 
+Include mnemonics to help students memorize fast and list any crucial formulas or definitions.
 
-Generate a comprehensive, one-page revision sheet for the following topic. The revision sheet should summarize the essential information, key concepts, and important points for quick review. Format the output clearly with headings, bullet points, and concise explanations. Ensure it is suitable for a student preparing for an exam.
-
-Topic: {{{topic}}}`,
+Topic/Notes:
+{{{topic}}}`,
 });
 
 const generateRevisionSheetFlow = ai.defineFlow(
