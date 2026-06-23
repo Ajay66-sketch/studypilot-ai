@@ -37,11 +37,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const profile = await createUserProfile(currentUser.uid, {
-          name: currentUser.displayName,
-          email: currentUser.email
-        });
-        setUserData(profile);
+        try {
+          const profile = await createUserProfile(currentUser.uid, {
+            name: currentUser.displayName,
+            email: currentUser.email
+          });
+          setUserData(profile);
+        } catch (error) {
+          console.error("Profile sync failed:", error);
+        }
       } else {
         setUserData(null);
         if (pathname.startsWith('/dashboard')) {
@@ -55,24 +59,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
   const loginWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
-    router.push('/dashboard');
+    try {
+      await signInWithPopup(auth, googleProvider);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error("Google Login Error:", error);
+      throw error;
+    }
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
-    router.push('/dashboard');
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error("Email Login Error:", error);
+      throw error;
+    }
   };
 
   const registerWithEmail = async (email: string, pass: string, name: string, referralCode?: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await createUserProfile(cred.user.uid, { name, email }, referralCode);
-    router.push('/dashboard');
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await createUserProfile(cred.user.uid, { name, email }, referralCode);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error("Registration Error:", error);
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await signOut(auth);
-    router.push('/');
+    try {
+      await signOut(auth);
+      router.push('/');
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
 
   return (
@@ -89,3 +112,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

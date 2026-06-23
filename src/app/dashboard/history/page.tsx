@@ -7,7 +7,7 @@ import { getUserDocuments, deleteDocument, toggleFavorite, StudyDocument } from 
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Calendar, ChevronRight, Search, Clock, Trash2, Filter, Copy, Star, Trash, BookOpen, Zap, AlertCircle } from "lucide-react";
+import { FileText, Calendar, Search, Trash2, Filter, Copy, Star, BookOpen, Zap, AlertCircle, Share2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { 
@@ -55,11 +55,11 @@ export default function HistoryPage() {
   }, [user, filterType, search, showFavorites]);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this study document?")) return;
+    if (!window.confirm("Delete this study document? This cannot be undone.")) return;
     try {
       await deleteDocument(id);
       setDocs(prev => prev.filter(d => d.id !== id));
-      toast({ title: "Deleted", description: "Document removed from library." });
+      toast({ title: "Deleted", description: "Material removed from library." });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
     }
@@ -71,16 +71,10 @@ export default function HistoryPage() {
     try {
       await toggleFavorite(doc.id, newStatus);
       setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, isFavorite: newStatus } : d));
-      toast({ title: newStatus ? "Favorited" : "Unfavorited", description: newStatus ? "Added to your study pack." : "Removed from study pack." });
+      toast({ title: newStatus ? "Favorited" : "Removed", description: newStatus ? "Added to Revision Pack." : "Removed from Revision Pack." });
     } catch (e) {
-      toast({ title: "Error", description: "Failed to update favorite.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update pack.", variant: "destructive" });
     }
-  };
-
-  const copyToClipboard = (text: any) => {
-    const content = typeof text === 'string' ? text : JSON.stringify(text);
-    navigator.clipboard.writeText(content);
-    toast({ title: "Copied", description: "Material copied to clipboard." });
   };
 
   const getToolIcon = (type: string) => {
@@ -98,37 +92,37 @@ export default function HistoryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
           <h1 className="text-4xl font-black font-headline tracking-tight">Study Library</h1>
-          <p className="text-muted-foreground font-medium">Your personal collection of exam-ready material.</p>
+          <p className="text-muted-foreground font-medium italic">Your exam-ready materials, organized and ready for revision.</p>
         </div>
         
-        <div className="flex flex-wrap w-full md:w-auto gap-2">
-          <div className="relative flex-1 md:w-64 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-wrap w-full md:w-auto gap-3">
+          <div className="relative flex-1 md:w-72 min-w-[200px]">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
             <Input 
               placeholder="Search title..." 
-              className="pl-10 rounded-xl" 
+              className="pl-11 h-12 rounded-2xl border-2 border-slate-50 focus:border-primary shadow-sm font-bold" 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <Button 
             variant={showFavorites ? "default" : "outline"} 
-            className="rounded-xl gap-2 font-bold"
+            className="rounded-2xl h-12 gap-2 font-black shadow-sm"
             onClick={() => setShowFavorites(!showFavorites)}
           >
-            <Star className={cn("h-4 w-4", showFavorites && "fill-white")} /> Study Pack
+            <Star className={cn("h-4 w-4", showFavorites && "fill-white")} /> Revision Pack
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-xl gap-2 font-bold">
-                <Filter className="h-4 w-4" /> {filterType ? filterType.charAt(0).toUpperCase() + filterType.slice(1) : "All Tools"}
+              <Button variant="outline" className="rounded-2xl h-12 gap-2 font-black shadow-sm">
+                <Filter className="h-4 w-4 text-primary" /> {filterType ? filterType.charAt(0).toUpperCase() + filterType.slice(1) : "All Tools"}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="rounded-xl">
-              <DropdownMenuItem onClick={() => setFilterType(null)}>All Tools</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterType("summarize")}>Summarizer</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterType("answer")}>Exam Answer</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterType("questions")}>Questions</DropdownMenuItem>
+            <DropdownMenuContent className="rounded-xl p-2 w-48 font-bold">
+              <DropdownMenuItem onClick={() => setFilterType(null)}>All Formats</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterType("summarize")}>Summaries</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterType("answer")}>Exam Answers</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterType("questions")}>Question Banks</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setFilterType("revision")}>Revision Sheets</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -136,50 +130,50 @@ export default function HistoryPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-[2rem]" />
+            <Skeleton key={i} className="h-72 w-full rounded-[2.5rem]" />
           ))}
         </div>
       ) : docs.length === 0 ? (
-        <div className="py-32 text-center border-2 border-dashed rounded-[3rem] bg-white space-y-6">
-          <div className="p-8 bg-slate-50 w-fit mx-auto rounded-full">
-            <FileText className="h-20 w-20 text-slate-200" />
+        <div className="py-32 text-center border-4 border-dashed rounded-[4rem] bg-slate-50/50 space-y-6">
+          <div className="p-10 bg-white w-fit mx-auto rounded-full shadow-sm">
+            <FileText className="h-20 w-20 text-slate-100" />
           </div>
-          <div className="space-y-2">
-            <p className="text-slate-400 font-black text-3xl tracking-tight">No Material Found</p>
-            <p className="text-muted-foreground max-w-sm mx-auto font-medium">Try changing your filters or start generating in the workspace.</p>
+          <div className="space-y-2 px-6">
+            <p className="text-slate-900 font-black text-3xl tracking-tight">Empty Library</p>
+            <p className="text-muted-foreground max-w-sm mx-auto font-medium">Start generating study materials in your workspace to build your library.</p>
           </div>
-          <Button className="rounded-xl px-10 h-12 font-black shadow-lg shadow-primary/20" asChild>
-            <a href="/dashboard">Go to Workspace</a>
+          <Button className="rounded-2xl px-12 h-14 font-black shadow-xl shadow-primary/20 text-lg" asChild>
+            <a href="/dashboard">Back to Workspace</a>
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {docs.map((doc) => (
-            <Card key={doc.id} className="group hover:border-primary/50 transition-all duration-300 flex flex-col overflow-hidden rounded-[2.2rem] border-2 border-slate-50 shadow-sm bg-white">
+            <Card key={doc.id} className="group hover:border-primary/40 transition-all duration-500 flex flex-col overflow-hidden rounded-[2.5rem] border-2 border-slate-50 shadow-md bg-white">
               <CardHeader className="pb-4 relative">
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   className={cn(
-                    "absolute top-6 right-6 h-8 w-8 rounded-full transition-colors", 
-                    doc.isFavorite ? "text-yellow-500 hover:text-yellow-600 bg-yellow-50" : "text-slate-300 hover:text-yellow-500"
+                    "absolute top-8 right-8 h-10 w-10 rounded-xl transition-all", 
+                    doc.isFavorite ? "text-yellow-500 bg-yellow-50 shadow-sm" : "text-slate-200 hover:text-yellow-500"
                   )}
-                  onClick={() => handleToggleFavorite(doc)}
+                  onClick={(e) => { e.stopPropagation(); handleToggleFavorite(doc); }}
                 >
-                  <Star className={cn("h-4 w-4", doc.isFavorite && "fill-yellow-500")} />
+                  <Star className={cn("h-5 w-5", doc.isFavorite && "fill-yellow-500")} />
                 </Button>
                 <div className="flex gap-2">
-                  <Badge className="capitalize bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-widest flex gap-1 items-center">
+                  <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-widest flex gap-1.5 items-center px-3 py-1 rounded-full">
                     {getToolIcon(doc.featureType)} {doc.featureType}
                   </Badge>
-                  {doc.isExamBooster && <Badge className="bg-amber-100 text-amber-600 border-none text-[8px] font-black">BOOSTER</Badge>}
+                  {doc.isExamBooster && <Badge className="bg-amber-100 text-amber-700 border-none text-[8px] font-black px-3 rounded-full">BOOSTER</Badge>}
                 </div>
-                <CardTitle className="text-xl line-clamp-1 mt-4 font-black font-headline tracking-tight group-hover:text-primary transition-colors pr-8">{doc.title}</CardTitle>
-                <div className="flex items-center gap-2 mt-1">
-                   <Badge variant="outline" className="text-[9px] font-bold border-slate-100 text-slate-400">{doc.subject || "General"}</Badge>
-                   <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                <CardTitle className="text-xl line-clamp-2 mt-6 font-black font-headline leading-tight tracking-tight group-hover:text-primary transition-colors pr-10">{doc.title}</CardTitle>
+                <div className="flex items-center gap-3 mt-2">
+                   <Badge variant="outline" className="text-[10px] font-bold border-slate-100 text-slate-400 px-3">{doc.subject || "General"}</Badge>
+                   <span className="text-[10px] font-black text-slate-300 flex items-center gap-1 uppercase tracking-widest">
                     <Calendar className="h-3 w-3" />
                     {doc.createdAt?.toDate().toLocaleDateString() || 'Just now'}
                   </span>
@@ -189,36 +183,33 @@ export default function HistoryPage() {
                 <p className="text-sm text-slate-500 line-clamp-4 leading-relaxed font-medium italic">
                   {typeof doc.outputText === 'string' 
                     ? doc.outputText 
-                    : doc.outputText.shortSummary || doc.outputText.introduction || doc.outputText.quickNotes || "Structured Study Material..."}
+                    : doc.outputText.shortSummary || doc.outputText.introduction || doc.outputText.quickNotes || "Structured high-quality study material..."}
                 </p>
               </CardContent>
-              <CardFooter className="bg-slate-50/50 pt-4 flex justify-between items-center px-6 py-4 border-t">
-                <div className="flex gap-1">
-                   <Button 
-                     variant="ghost" 
-                     size="icon" 
-                     className="h-8 w-8 text-slate-400 hover:text-primary rounded-lg"
-                     onClick={() => copyToClipboard(doc.outputText)}
-                   >
-                     <Copy className="h-4 w-4" />
-                   </Button>
-                </div>
+              <CardFooter className="bg-slate-50/50 pt-4 flex justify-between items-center px-8 py-5 border-t border-slate-100">
                 <div className="flex gap-2">
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-8 w-8 text-slate-300 hover:text-destructive rounded-lg"
+                    className="h-9 w-9 text-slate-300 hover:text-destructive rounded-xl hover:bg-destructive/5 transition-colors"
                     onClick={() => doc.id && handleDelete(doc.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="default" size="sm" className="rounded-xl h-8 font-black px-6" onClick={() => {
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="rounded-xl h-9 font-black px-5 border-2 text-xs" onClick={() => {
                     toast({ title: "Opening Material", description: "Returning to workspace with this context." });
-                    // Store in sessionStorage to restore in dashboard
                     sessionStorage.setItem('restore_doc', JSON.stringify(doc));
                     router.push('/dashboard');
                   }}>
                     Reuse
+                  </Button>
+                  <Button variant="default" size="sm" className="rounded-xl h-9 font-black px-6 shadow-lg shadow-primary/20 text-xs" onClick={() => {
+                    sessionStorage.setItem('restore_doc', JSON.stringify(doc));
+                    router.push('/dashboard');
+                  }}>
+                    View
                   </Button>
                 </div>
               </CardFooter>
@@ -229,3 +220,4 @@ export default function HistoryPage() {
     </div>
   );
 }
+
