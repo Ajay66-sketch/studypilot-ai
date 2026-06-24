@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp } from "fire
 import { db } from "@/lib/firebase";
 
 export async function checkUsageLimit(uid: string, plan: string): Promise<{ allowed: boolean; remaining: number }> {
-  if (plan === "premium") return { allowed: true, remaining: Infinity };
+  if (plan === "pro" || plan === "premium") return { allowed: true, remaining: Infinity };
 
   const usageRef = doc(db, "usage", uid);
   const usageSnap = await getDoc(usageRef);

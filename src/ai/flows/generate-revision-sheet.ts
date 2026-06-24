@@ -4,7 +4,7 @@
  * @fileOverview Generates dense, high-value revision sheets for last-minute prep.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai, assertApiKey} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateRevisionSheetInputSchema = z.object({
@@ -24,6 +24,7 @@ const GenerateRevisionSheetOutputSchema = z.object({
 export type GenerateRevisionSheetOutput = z.infer<typeof GenerateRevisionSheetOutputSchema>;
 
 export async function generateRevisionSheet(input: GenerateRevisionSheetInput): Promise<GenerateRevisionSheetOutput> {
+  assertApiKey();
   return generateRevisionSheetFlow(input);
 }
 

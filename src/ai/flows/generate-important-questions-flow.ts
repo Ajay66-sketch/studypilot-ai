@@ -4,7 +4,7 @@
  * @fileOverview Identifies high-probability exam questions based on topic depth.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai, assertApiKey} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateImportantQuestionsInputSchema = z.object({
@@ -25,6 +25,7 @@ const GenerateImportantQuestionsOutputSchema = z.object({
 export type GenerateImportantQuestionsOutput = z.infer<typeof GenerateImportantQuestionsOutputSchema>;
 
 export async function generateImportantQuestions(input: GenerateImportantQuestionsInput): Promise<GenerateImportantQuestionsOutput> {
+  assertApiKey();
   return generateImportantQuestionsFlow(input);
 }
 

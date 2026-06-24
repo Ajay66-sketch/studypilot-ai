@@ -3,10 +3,11 @@
 
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
-import { GraduationCap, LayoutDashboard, History, CreditCard, LogOut, UserCircle } from "lucide-react";
+import { GraduationCap, LayoutDashboard, History, CreditCard, LogOut, UserCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 function DashboardSidebar() {
   const { user, logout } = useAuth();
@@ -70,28 +71,46 @@ function DashboardSidebar() {
   );
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-slate-50 space-y-4">
+        <div className="relative">
+          <div className="h-16 w-16 border-4 border-primary/10 border-t-primary rounded-full animate-spin" />
+          <GraduationCap className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        </div>
+        <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] animate-pulse">
+          Loading Study Workspace...
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <AuthProvider>
-      <SidebarProvider>
-        <DashboardSidebar />
-        <SidebarInset className="bg-background">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white px-6 justify-between sticky top-0 z-30">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 text-slate-400 hover:text-primary transition-colors" />
-              <div className="h-4 w-[1px] bg-slate-100 mx-3" />
-              <h1 className="font-black text-sm uppercase tracking-widest text-slate-500">Study Workspace</h1>
-            </div>
-            <div className="flex items-center gap-4">
-               <Badge className="bg-primary/5 text-primary border-none font-black text-[10px] tracking-widest hidden sm:flex">BETA V1.0</Badge>
-            </div>
-          </header>
-          <main className="p-4 md:p-10 max-w-7xl mx-auto w-full">
-            {children}
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
-    </AuthProvider>
+    <SidebarProvider>
+      <DashboardSidebar />
+      <SidebarInset className="bg-background">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white px-6 justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="h-9 w-9 text-slate-400 hover:text-primary transition-colors" />
+            <div className="h-4 w-[1px] bg-slate-100 mx-3" />
+            <h1 className="font-black text-sm uppercase tracking-widest text-slate-500">Study Workspace</h1>
+          </div>
+          <div className="flex items-center gap-4">
+             <Badge className="bg-primary/5 text-primary border-none font-black text-[10px] tracking-widest hidden sm:flex">BETA V1.0</Badge>
+          </div>
+        </header>
+        <main className="p-4 md:p-10 max-w-7xl mx-auto w-full">
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return <DashboardLayoutContent>{children}</DashboardLayoutContent>;
 }
 

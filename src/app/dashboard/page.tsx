@@ -80,37 +80,86 @@ export default function Dashboard() {
 
     const fetchUsage = async () => {
       if (user) {
-        const u = await checkUsageLimit(user.uid, userData?.plan || 'free');
-        setUsage({ used: 5 - u.remaining, total: 5 });
-        if (userData && !userData.onboardingCompleted) {
-          setShowOnboarding(true);
+        try {
+          const u = await checkUsageLimit(user.uid, userData?.plan || 'free');
+          setUsage({ used: 5 - u.remaining, total: 5 });
+          if (userData && !userData.onboardingCompleted) {
+            setShowOnboarding(true);
+          }
+        } catch (error) {
+          console.error("Failed to load usage limits from database:", error);
+          // Set a safe fallback usage state so UI doesn't break
+          setUsage({ used: 0, total: 5 });
         }
       }
     };
     fetchUsage();
   }, [user, userData, toast]);
 
+  const parsePDFFile = async (file: File, pdfjsLib: any) => {
+    try {
+      toast({ title: "Parsing PDF...", description: "Extracting text content." });
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      let fullText = "";
+      
+      const pagesToParse = Math.min(pdf.numPages, 10);
+      for (let i = 1; i <= pagesToParse; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(" ");
+        fullText += pageText + "\n";
+      }
+
+      if (!fullText.trim()) {
+        throw new Error("No readable text found. The document might be scanned or contain only images.");
+      }
+
+      setInputText(fullText.trim().slice(0, 15000));
+      if (!title) setTitle(file.name.replace(".pdf", ""));
+      toast({ title: "PDF Extracted", description: `Successfully loaded ${pagesToParse} page(s).` });
+    } catch (err: any) {
+      console.error("PDF parsing error:", err);
+      toast({ 
+        title: "Extraction Failed", 
+        description: err.message || "Failed to extract text from PDF.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type === "text/plain") {
+    const isTxt = file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (isTxt) {
       const text = await file.text();
       setInputText(text);
-      if (!title) setTitle(file.name.replace(".txt", ""));
+      if (!title) setTitle(file.name.replace(/\.txt$/i, ""));
       toast({ title: "Text Uploaded", description: "Extracted file content." });
-    } else if (file.type === "application/pdf") {
-      // Set expectations honestly for PDF extraction
-      toast({ title: "Extracting PDF", description: "Note: Simple text PDFs work best. Scans may be messy." });
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        // Basic extraction fallback logic
-        setInputText(content.slice(0, 10000));
-        if (!title) setTitle(file.name.replace(".pdf", ""));
-        toast({ title: "Check Extraction", description: "Review and edit text for accuracy." });
-      };
-      reader.readAsText(file);
+    } else if (isPdf) {
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) {
+        toast({ title: "Loading PDF Engine", description: "Configuring browser parser..." });
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = async () => {
+          const loadedLib = (window as any).pdfjsLib;
+          loadedLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          await parsePDFFile(file, loadedLib);
+        };
+        script.onerror = () => {
+          toast({ title: "PDF Engine Failed", description: "Could not load PDF parsing library.", variant: "destructive" });
+        };
+        document.body.appendChild(script);
+      } else {
+        await parsePDFFile(file, pdfjsLib);
+      }
     } else {
       toast({ title: "Format Error", description: "Use .txt or .pdf files.", variant: "destructive" });
     }
@@ -211,22 +260,45 @@ export default function Dashboard() {
   };
 
   const copyToClipboard = () => {
+    if (!result) return;
+    if (!navigator.clipboard) {
+      toast({ title: "Copy Failed", description: "Insecure browser context. Switch to HTTPS to use clipboard.", variant: "destructive" });
+      return;
+    }
     let content = "";
-    if (activeTool === "summarize") content = `${result.shortSummary}\n\n${result.bulletPoints.join('\n')}`;
-    else if (activeTool === "answer") content = `${result.title}\n\n${result.introduction}\n\n${result.mainBody}\n\n${result.conclusion}`;
-    else if (activeTool === "questions") content = `MOST PROBABLE:\n${result.mostProbable.join('\n')}\n\n2 MARKS:\n${result.twoMarkQuestions.join('\n')}`;
-    else content = `${result.quickNotes}\n\nFORMULAS:\n${result.formulasAndDefinitions.join('\n')}`;
+    if (activeTool === "summarize") {
+      content = `${result.shortSummary || ""}\n\n${result.bulletPoints?.join('\n') || ""}`;
+    } else if (activeTool === "answer") {
+      content = `${result.title || ""}\n\n${result.introduction || ""}\n\n${result.mainBody || ""}\n\n${result.conclusion || ""}`;
+    } else if (activeTool === "questions") {
+      content = `MOST PROBABLE:\n${result.mostProbable?.join('\n') || ""}\n\n2 MARKS:\n${result.twoMarkQuestions?.join('\n') || ""}`;
+    } else {
+      content = `${result.quickNotes || ""}\n\nFORMULAS:\n${result.formulasAndDefinitions?.join('\n') || ""}`;
+    }
 
-    navigator.clipboard.writeText(content.replace(/\*\*/g, ''));
+    navigator.clipboard.writeText(content.replace(/\*\*/g, '').trim());
     toast({ title: "Copied!", description: "Ready to share." });
   };
 
   const chainToTool = (newTool: string) => {
+    if (!result) return;
     let context = "";
-    if (activeTool === "summarize") context = result.bulletPoints?.join("\n") || result.shortSummary;
-    else if (activeTool === "answer") context = result.mainBody;
-    else if (activeTool === "questions") context = result.mostProbable?.join("\n") || "";
-    else context = result.quickNotes;
+    if (result.bulletPoints || result.shortSummary) {
+      context = result.bulletPoints?.join("\n") || result.shortSummary || "";
+    } else if (result.mainBody) {
+      context = result.mainBody || "";
+    } else if (result.mostProbable) {
+      context = result.mostProbable?.join("\n") || "";
+    } else if (result.quickNotes) {
+      context = result.quickNotes || "";
+    } else {
+      context = result.shortSummary || result.mainBody || result.quickNotes || "";
+    }
+
+    if (!context.trim()) {
+      toast({ title: "No Context", description: "Could not find any content to chain.", variant: "destructive" });
+      return;
+    }
 
     setInputText(context);
     setActiveTool(newTool);

@@ -12,7 +12,11 @@ import {
   Smartphone, Trophy, Heart, ShieldQuestion
 } from "lucide-react";
 
+import { useAuth } from "@/components/auth-provider";
+
 export default function LandingPage() {
+  const { user } = useAuth();
+  
   return (
     <div className="flex flex-col min-h-screen selection:bg-primary/20 selection:text-primary bg-white overflow-x-hidden">
       <header className="px-4 lg:px-12 h-20 flex items-center border-b bg-white/80 backdrop-blur-xl sticky top-0 z-50">
@@ -23,14 +27,22 @@ export default function LandingPage() {
           <span className="font-headline font-black text-xl tracking-tighter text-slate-900">StudyPilot AI</span>
         </Link>
         <nav className="ml-auto flex gap-4 md:gap-8 items-center">
-          <Link className="hidden lg:block text-sm font-bold text-slate-600 hover:text-primary transition-colors" href="/dashboard/billing">Pricing</Link>
+          <Link className="hidden lg:block text-sm font-bold text-slate-600 hover:text-primary transition-colors" href={user ? "/dashboard/billing" : "/login?next=/dashboard/billing"}>Pricing</Link>
           <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" className="font-black text-slate-700 hover:bg-slate-50 text-sm px-4">
-              <Link href="/dashboard">Login</Link>
-            </Button>
-            <Button asChild className="rounded-xl font-black shadow-xl shadow-primary/20 px-6 h-10 bg-primary hover:bg-primary/90 text-sm">
-              <Link href="/dashboard">Join Free</Link>
-            </Button>
+            {user ? (
+              <Button asChild className="rounded-xl font-black shadow-xl shadow-primary/20 px-6 h-10 bg-primary hover:bg-primary/90 text-sm">
+                <Link href="/dashboard">Go to Workspace</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild variant="ghost" className="font-black text-slate-700 hover:bg-slate-50 text-sm px-4">
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild className="rounded-xl font-black shadow-xl shadow-primary/20 px-6 h-10 bg-primary hover:bg-primary/90 text-sm">
+                  <Link href="/login">Join Free</Link>
+                </Button>
+              </>
+            )}
           </div>
         </nav>
       </header>
@@ -53,12 +65,12 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button asChild size="lg" className="h-14 px-10 text-lg font-black rounded-2xl shadow-2xl shadow-primary/20 hover:scale-105 transition-all group bg-primary">
-                  <Link href="/dashboard">
+                  <Link href={user ? "/dashboard" : "/login"}>
                     Start Prep Free <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" className="h-14 px-10 text-lg font-black rounded-2xl border-2 hover:bg-slate-50 shadow-sm" asChild>
-                  <Link href="/dashboard/billing">View India Pricing</Link>
+                  <Link href={user ? "/dashboard/billing" : "/login?next=/dashboard/billing"}>View India Pricing</Link>
                 </Button>
               </div>
             </div>
@@ -171,7 +183,7 @@ export default function LandingPage() {
                <p className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400">Support</p>
                <ul className="space-y-2 font-bold text-slate-600 text-[10px]">
                  <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
-                 <li><Link href="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link></li>
+                 <li><Link href={user ? "/dashboard" : "/login"} className="hover:text-primary transition-colors">Dashboard</Link></li>
                </ul>
             </div>
           </div>

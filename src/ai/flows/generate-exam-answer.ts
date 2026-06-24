@@ -4,7 +4,7 @@
  * @fileOverview Generates structured, marks-aware exam answers for university students.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, assertApiKey } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const GenerateExamAnswerInputSchema = z.object({
@@ -28,6 +28,7 @@ const GenerateExamAnswerOutputSchema = z.object({
 export type GenerateExamAnswerOutput = z.infer<typeof GenerateExamAnswerOutputSchema>;
 
 export async function generateExamAnswer(input: GenerateExamAnswerInput): Promise<GenerateExamAnswerOutput> {
+  assertApiKey();
   return generateExamAnswerFlow(input);
 }
 

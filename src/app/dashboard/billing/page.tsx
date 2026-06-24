@@ -22,6 +22,7 @@ export default function BillingPage() {
   const isElite = userData?.plan === "premium";
 
   const handleUpgrade = async (plan: 'Pro' | 'Elite') => {
+    if (loadingPlan) return;
     if (!user) {
       toast({ title: "Auth Required", description: "Please sign in to upgrade.", variant: "destructive" });
       return;
@@ -81,13 +82,22 @@ export default function BillingPage() {
           setLoadingPlan(null);
         }
       });
-    } catch (e) {
+    } catch (e: any) {
+      toast({
+        title: "Checkout Error",
+        description: e?.message || "Failed to initialize payment gateway.",
+        variant: "destructive"
+      });
       setLoadingPlan(null);
     }
   };
 
   const copyReferral = () => {
     if (!userData?.referralCode) return;
+    if (!navigator.clipboard) {
+      toast({ title: "Copy Failed", description: "Insecure browser context. Switch to HTTPS to use clipboard.", variant: "destructive" });
+      return;
+    }
     navigator.clipboard.writeText(userData.referralCode);
     toast({ title: "Copied!", description: "Share this code with your friends." });
   };

@@ -4,7 +4,7 @@
  * @fileOverview Summarizes raw notes into exam-focused, structured material.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai, assertApiKey} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SummarizeNotesInputSchema = z.object({
@@ -27,6 +27,7 @@ const SummarizeNotesOutputSchema = z.object({
 export type SummarizeNotesOutput = z.infer<typeof SummarizeNotesOutputSchema>;
 
 export async function summarizeNotes(input: SummarizeNotesInput): Promise<SummarizeNotesOutput> {
+  assertApiKey();
   return summarizeNotesFlow(input);
 }
 

@@ -175,15 +175,17 @@ export default function HistoryPage() {
                    <Badge variant="outline" className="text-[9px] font-bold border-slate-100 text-slate-400 px-2">{doc.subject || "General"}</Badge>
                    <span className="text-[9px] font-black text-slate-300 flex items-center gap-1 uppercase tracking-widest">
                     <Calendar className="h-3 w-3" />
-                    {doc.createdAt?.toDate().toLocaleDateString() || 'Just now'}
+                     {doc.createdAt && typeof doc.createdAt.toDate === 'function' ? doc.createdAt.toDate().toLocaleDateString() : 'Just now'}
                   </span>
                 </div>
               </CardHeader>
               <CardContent className="flex-1 pb-6">
                 <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed font-medium italic">
-                  {typeof doc.outputText === 'string' 
-                    ? doc.outputText 
-                    : doc.outputText.shortSummary || doc.outputText.introduction || doc.outputText.quickNotes || "Structured high-quality study material..."}
+                  {!doc.outputText 
+                    ? "Structured study material..." 
+                    : typeof doc.outputText === 'string' 
+                      ? doc.outputText 
+                      : doc.outputText.shortSummary || doc.outputText.introduction || doc.outputText.quickNotes || "Structured study material..."}
                 </p>
               </CardContent>
               <CardFooter className="bg-slate-50/50 pt-4 flex justify-between items-center px-6 py-4 border-t border-slate-100">

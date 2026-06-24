@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUserData(null);
         if (pathname.startsWith('/dashboard')) {
-          router.push('/');
+          router.push(`/login?next=${encodeURIComponent(pathname)}`);
         }
       }
       setLoading(false);
@@ -61,7 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      router.push('/dashboard');
+      const searchParams = new URLSearchParams(window.location.search);
+      const next = searchParams.get('next') || '/dashboard';
+      router.push(next);
     } catch (error) {
       console.error("Google Login Error:", error);
       throw error;
@@ -71,7 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithEmail = async (email: string, pass: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, pass);
-      router.push('/dashboard');
+      const searchParams = new URLSearchParams(window.location.search);
+      const next = searchParams.get('next') || '/dashboard';
+      router.push(next);
     } catch (error) {
       console.error("Email Login Error:", error);
       throw error;
@@ -82,7 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await createUserProfile(cred.user.uid, { name, email }, referralCode);
-      router.push('/dashboard');
+      const searchParams = new URLSearchParams(window.location.search);
+      const next = searchParams.get('next') || '/dashboard';
+      router.push(next);
     } catch (error) {
       console.error("Registration Error:", error);
       throw error;
@@ -91,8 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await signOut(auth);
       router.push('/');
+      await signOut(auth);
     } catch (error) {
       console.error("Logout Error:", error);
     }

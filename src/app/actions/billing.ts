@@ -2,6 +2,7 @@
 'use server';
 
 import { updateUserPlan } from "@/lib/firestore-services";
+import crypto from 'crypto';
 
 /**
  * @fileOverview Secure server-side billing actions for StudyPilot AI.
@@ -18,21 +19,33 @@ interface VerificationInput {
 
 /**
  * Verifies the Razorpay payment integrity and activates the plan in Firestore.
- * In a full production build, this would use the 'crypto' module to verify the HMAC signature.
  */
 export async function verifyAndActivatePlan(input: VerificationInput) {
-  const { uid, plan, razorpay_payment_id, razorpay_signature } = input;
+  const { uid, plan, razorpay_payment_id, razorpay_order_id, razorpay_signature } = input;
 
   if (!uid || !plan || !razorpay_payment_id) {
     throw new Error("Missing critical payment verification data.");
   }
 
   try {
-    // 1. (Production Step) Verify HMAC signature using Razorpay Secret
-    // const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
-    // hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
-    // const generated_signature = hmac.digest('hex');
-    // if (generated_signature !== razorpay_signature) throw new Error("Invalid payment signature.");
+    // 1. Verify HMAC signature using Razorpay Secret if configured
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (secret) {
+      if (!razorpay_order_id || !razorpay_signature) {
+        throw new Error("Missing signature metadata for secure verification.");
+      }
+      const hmac = crypto.createHmac('sha256', secret);
+      hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+      const generated_signature = hmac.digest('hex');
+      if (generated_signature !== razorpay_signature) {
+        throw new Error("Invalid payment signature.");
+      }
+    } else {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error("RAZORPAY_KEY_SECRET is not configured on the server. Cannot bypass payment signature verification in production.");
+      }
+      console.warn("WARNING: RAZORPAY_KEY_SECRET is not configured on the server. Skipping secure signature verification in development.");
+    }
 
     // 2. Perform any additional business checks (e.g. check if payment ID was already used)
 

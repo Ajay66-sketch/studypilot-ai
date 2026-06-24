@@ -19,14 +19,23 @@ export default function AccountPage() {
   useEffect(() => {
     async function fetchUsage() {
       if (user) {
-        const u = await checkUsageLimit(user.uid, userData?.plan || 'free');
-        setUsage({ used: 5 - u.remaining, total: 5 });
+        try {
+          const u = await checkUsageLimit(user.uid, userData?.plan || 'free');
+          setUsage({ used: 5 - u.remaining, total: 5 });
+        } catch (error) {
+          console.error("Failed to load usage snapshot:", error);
+          setUsage({ used: 0, total: 5 });
+        }
       }
     }
     fetchUsage();
   }, [user, userData]);
 
   const copyReferral = () => {
+    if (!navigator.clipboard) {
+      toast({ title: "Copy Failed", description: "Insecure browser context. Switch to HTTPS to use clipboard.", variant: "destructive" });
+      return;
+    }
     navigator.clipboard.writeText(userData?.referralCode || "");
     toast({ title: "Copied!", description: "Share this code with your friends." });
   };
@@ -78,7 +87,7 @@ export default function AccountPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Joined On</p>
-                <p className="font-bold text-lg">{userData?.createdAt?.toDate().toLocaleDateString() || "..."}</p>
+                <p className="font-bold text-lg">{userData?.createdAt && typeof userData.createdAt.toDate === 'function' ? userData.createdAt.toDate().toLocaleDateString() : "..."}</p>
               </div>
             </div>
           </CardContent>
