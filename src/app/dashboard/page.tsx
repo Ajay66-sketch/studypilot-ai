@@ -18,12 +18,14 @@ import {
   GraduationCap, Printer, Info,
   Loader2
 } from "lucide-react";
-import { summarizeNotes } from "@/ai/flows/summarize-notes";
-import { generateExamAnswer } from "@/ai/flows/generate-exam-answer";
-import { generateImportantQuestions } from "@/ai/flows/generate-important-questions-flow";
-import { generateRevisionSheet } from "@/ai/flows/generate-revision-sheet";
+import { 
+  summarizeNotesApi as summarizeNotes, 
+  generateExamAnswerApi as generateExamAnswer, 
+  generateImportantQuestionsApi as generateImportantQuestions, 
+  generateRevisionSheetApi as generateRevisionSheet 
+} from "@/services/ai-service";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
-import { saveDocument, generateHash, findCachedDocument, updateOnboardingStatus, toggleFavorite } from "@/lib/firestore-services";
+import { saveDocument, generateHash, findCachedDocument, updateOnboardingStatus, toggleFavorite } from "@/lib/document-services";
 import { trackEvent } from "@/lib/analytics";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";

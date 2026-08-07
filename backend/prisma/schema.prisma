@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  password            String
+  name                String?
+  plan                String         @default("free")
+  referralCode        String         @unique
+  referredById        String?
+  referredBy          User?          @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals           User[]         @relation("UserReferrals")
+  onboardingCompleted Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  sessions            Session[]
+  documents           Document[]
+  subscriptions       Subscription[]
+  usage               Usage?
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  isRevoked    Boolean  @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Document {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  featureType     String
+  subject         String?
+  answerMode      String?
+  isExamBooster   Boolean     @default(false)
+  isFavorite      Boolean     @default(false)
+  inputText       String
+  outputText      String
+  cachedHash      String
+  isPremiumOutput Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Usage {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requestsUsed  Int      @default(0)
+  lastResetDate String
+  updatedAt     DateTime @updatedAt
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              String
+  status            String   @default("active")
+  razorpayPaymentId String
+  razorpayOrderId   String?
+  razorpaySignature String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { getUserDocuments, deleteDocument, toggleFavorite, StudyDocument } from "@/lib/firestore-services";
+import { getUserDocuments, deleteDocument, toggleFavorite, StudyDocument } from "@/lib/document-services";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 export default function HistoryPage() {
@@ -145,7 +146,7 @@ export default function HistoryPage() {
             <p className="text-muted-foreground max-w-sm mx-auto font-medium text-sm">Start generating study materials in your workspace to build your prep library.</p>
           </div>
           <Button className="rounded-xl px-10 h-12 font-black shadow-lg shadow-primary/20 text-sm" asChild>
-            <a href="/dashboard">Back to Workspace</a>
+            <Link href="/dashboard">Back to Workspace</Link>
           </Button>
         </div>
       ) : (
@@ -175,7 +176,7 @@ export default function HistoryPage() {
                    <Badge variant="outline" className="text-[9px] font-bold border-slate-100 text-slate-400 px-2">{doc.subject || "General"}</Badge>
                    <span className="text-[9px] font-black text-slate-300 flex items-center gap-1 uppercase tracking-widest">
                     <Calendar className="h-3 w-3" />
-                     {doc.createdAt && typeof doc.createdAt.toDate === 'function' ? doc.createdAt.toDate().toLocaleDateString() : 'Just now'}
+                     {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Just now'}
                   </span>
                 </div>
               </CardHeader>

@@ -87,7 +87,7 @@ export default function AccountPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Joined On</p>
-                <p className="font-bold text-lg">{userData?.createdAt && typeof userData.createdAt.toDate === 'function' ? userData.createdAt.toDate().toLocaleDateString() : "..."}</p>
+                <p className="font-bold text-lg">{userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : "..."}</p>
               </div>
             </div>
           </CardContent>

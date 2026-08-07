@@ -24,7 +24,8 @@ function LoginForm() {
   const [authLoading, setAuthLoading] = useState(false);
 
   const nextParam = searchParams.get("next");
-  const next = (nextParam && nextParam !== "/login" && nextParam.startsWith("/")) ? nextParam : "/dashboard";
+  const isSafeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") && !nextParam.startsWith("/\\");
+  const next = (isSafeNext && nextParam !== "/login") ? nextParam : "/dashboard";
 
   // Redirect if already logged in
   useEffect(() => {
@@ -34,19 +35,10 @@ function LoginForm() {
   }, [user, loading, next, router]);
 
   const handleGoogleLogin = async () => {
-    setAuthLoading(true);
-    try {
-      await loginWithGoogle();
-      toast({ title: "Welcome!", description: "Signed in successfully." });
-    } catch (err: any) {
-      toast({
-        title: "Login Failed",
-        description: err.message || "Failed to authenticate with Google.",
-        variant: "destructive",
-      });
-    } finally {
-      setAuthLoading(false);
-    }
+    toast({
+      title: "Email Auth Active",
+      description: "Please sign in or register with your email address below.",
+    });
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
